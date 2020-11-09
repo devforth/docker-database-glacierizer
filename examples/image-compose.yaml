@@ -1,0 +1,28 @@
+version: "3.0"
+
+services:
+  postgresql_db:
+    image: postgres:10.11-alpine
+    ports:
+    - 5432:5432
+    environment:
+      POSTGRES_USER: example_user
+      POSTGRES_PASSWORD: example_password
+      POSTGRES_DB: example_name
+
+  postgresql_dumper:
+    image: ivanborshchov/docker-database-glacierizer
+    environment:
+      CRON: "* * * * *"
+
+      DATABASE_TYPE: "PostgreSQL" # [MySQL, PostgreSQL]
+      DATABASE_HOST: "postgresql_db"
+      DATABASE_NAME: "example_name"
+      DATABASE_USER: "example_user"
+      DATABASE_PASSWORD: "example_password"
+
+      GLACIER_REGION: "eu-central-1" # AWS Region where glacier vault will be created
+      GLACIER_VAULT_NAME: "example_vault_name"
+
+      AWS_ACCESS_KEY_ID: "example_access_key"
+      AWS_SECRET_ACCESS_KEY: "example_secret_key"
