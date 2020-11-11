@@ -21,8 +21,8 @@ services:
       DATABASE_USER: "example_user"
       DATABASE_PASSWORD: "example_password"
 
-      GLACIER_REGION: "eu-central-1" # AWS Region where glacier vault will be created
       GLACIER_VAULT_NAME: "example_vault_name"
 
+      AWS_S3_REGION_NAME: "eu-central-1"
       AWS_ACCESS_KEY_ID: "example_access_key"
       AWS_SECRET_ACCESS_KEY: "example_secret_key"

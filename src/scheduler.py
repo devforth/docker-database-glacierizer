@@ -18,8 +18,8 @@ def check_env():
         'DATABASE_NAME': {'type': str},
         'DATABASE_USER': {'type': str},
         'DATABASE_PASSWORD': {'type': str},
-        'GLACIER_REGION': {'type': str},
         'GLACIER_VAULT_NAME': {'type': str},
+        'AWS_S3_REGION_NAME': {'type': str},
         'AWS_ACCESS_KEY_ID': {'type': str},
         'AWS_SECRET_ACCESS_KEY': {'type': str},
     }
@@ -64,7 +64,7 @@ def dump_database():
             logger.error("RETURN CODE OF DUMP PROCESS != 0. CHECK OUTPUT ABOVE FOR ERRORS!")
         else:
             try:
-                glacier = boto3.client('glacier', region_name=os.getenv('GLACIER_REGION'))
+                glacier = boto3.client('glacier')
                 glacier.create_vault(vaultName=os.getenv('GLACIER_VAULT_NAME'))
                 with open(dump_path, 'rb') as f:
                     logger.info(glacier.upload_archive(

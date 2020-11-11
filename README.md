@@ -12,8 +12,8 @@ Environment values meaning:
 - DATABASE_NAME: scheme name to backup
 - DATABASE_USER: username of database user 
 - DATABASE_PASSWORD: password of database user
-- GLACIER_REGION: AWS region where Glacier vault will be created
-- GLACIER_VAULT_NAME: name of Glacier vault that will be created 
+- GLACIER_VAULT_NAME: name of Glacier vault that will be created
+- AWS_S3_REGION_NAME: AWS region where Glacier vault will be created
 - AWS_ACCESS_KEY_ID: access key for your AWS account
 - AWS_SECRET_ACCESS_KEY: secret key for your AWS account
 
