@@ -102,8 +102,6 @@ def dump_database():
 if __name__ == "__main__":
     environment = get_env()
 
-    print(environment['TEST'])
-
     if environment.get('TEST'):
         import time
         time.sleep(30)
