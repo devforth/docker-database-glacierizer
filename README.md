@@ -1,6 +1,6 @@
 # docker-database-glacierizer
 
-Docker image for automatic database backups to AWS S3 Glacier with cron-syntax scheduler. [Docker Hub](https://hub.docker.com/r/ivanborshchov/docker-database-glacierizer)
+Docker image for automatic database backups to AWS S3 Glacier with cron-syntax scheduler. [Docker Hub](https://hub.docker.com/r/devforth/docker-database-glacierizer)
 
 ## Hints on usage
 To use this image you need to setup all of it's environment values. If one of it's values are missing, empty or of a wrong type, it will print out a message to log to let you know.
