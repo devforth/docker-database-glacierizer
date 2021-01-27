@@ -63,7 +63,7 @@ def dump_database():
     dump_path = os.path.join('/tmp', filename)
 
     dump_database_templates = {
-        'mysql': 'mysqldump -h {host} -u {user} -p{password} --databases {database} | gzip -9 > {dump_path}',
+        'mysql': 'mysqldump -h {host} -u {user} -p{password} --databases {database} --protocol tcp | gzip -9 > {dump_path}',
         'postgresql': 'PGPASSWORD={password} pg_dump -h {host} -U {user} -d {database} -Fp -Z9 > {dump_path}',
     }
 
