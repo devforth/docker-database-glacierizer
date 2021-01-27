@@ -28,7 +28,8 @@ def get_env():
         'DATABASE_HOST': {'type': str},
         'DATABASE_NAME': {'type': str},
         'DATABASE_USER': {'type': str},
-        'DATABASE_PASSWORD': {'type': str},
+        'DATABASE_PASSWORD': {'type': int},
+        'DATABASE_PORT': {'type': int, 'required': False, 'default': 0},
         'GLACIER_VAULT_NAME': {'type': str},
         'AWS_DEFAULT_REGION': {'type': str},
         'AWS_ACCESS_KEY_ID': {'type': str},
@@ -53,6 +54,17 @@ def get_env():
                 raise AttributeError(f'Environment value {name} is expected to be one of [{options["possible_values"]}]')
             else:
                 environment[name] = value
+
+    if environment['DATABASE_PORT'] == 0:
+        port_map = {
+            'mysql': 3306,
+            'postgresql': 5432,
+        }
+        environment['DATABASE_PORT'] = port_map.get(environment['DATABASE_TYPE'].lower(), 0)
+
+    if environment['DATABASE_PORT'] == 0:
+        raise AttributeError(f'Couldn\'t figure out value for DATABASE_PORT. Please specify it as environment value')
+
     return environment
 
 
@@ -63,8 +75,8 @@ def dump_database():
     dump_path = os.path.join('/tmp', filename)
 
     dump_database_templates = {
-        'mysql': 'mysqldump -h {host} -u {user} -p{password} --databases {database} --protocol tcp | gzip -9 > {dump_path}',
-        'postgresql': 'PGPASSWORD={password} pg_dump -h {host} -U {user} -d {database} -Fp -Z9 > {dump_path}',
+        'mysql': 'mysqldump -h {host} -u {user} -p{password} --databases {database} -P {port} --protocol tcp | gzip -9 > {dump_path}',
+        'postgresql': 'PGPASSWORD={password} pg_dump -h {host} -U {user} -d {database} -p {port} -Fp -Z9 > {dump_path}',
     }
 
     database_type = environment.get('DATABASE_TYPE').lower()
@@ -76,6 +88,7 @@ def dump_database():
             user=environment.get('DATABASE_USER'),
             password=environment.get('DATABASE_PASSWORD'),
             database=environment.get('DATABASE_NAME'),
+            port=environment.get('DATABASE_PORT'),
             dump_path=dump_path.format(database=environment.get('DATABASE_NAME')),
         )
         return_code = os.system(dump_command)
@@ -83,6 +96,7 @@ def dump_database():
         if return_code != 0:
             logger.error("RETURN CODE OF DUMP PROCESS != 0. CHECK OUTPUT ABOVE FOR ERRORS!")
         else:
+            logger.info(f'{datetime.now()}: Backup created. Uploading to glacier')
             try:
                 glacier = boto3.client('glacier')
                 glacier.create_vault(vaultName=environment.get('GLACIER_VAULT_NAME'))
@@ -106,6 +120,7 @@ if __name__ == "__main__":
         import time
         time.sleep(30)
         dump_database()
+        time.sleep(300)
     else:
         dumper_scheduler = BlockingScheduler()
         dumper_scheduler.add_job(dump_database, CronTrigger.from_crontab(os.getenv('CRON')))

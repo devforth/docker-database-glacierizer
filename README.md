@@ -13,8 +13,9 @@ Environment values meaning:
 - DATABASE_TYPE: type of database you want to backup, available values [MySQL, PostgreSQL]
 - DATABASE_HOST: hostname or ip address to database
 - DATABASE_NAME: scheme name to backup
-- DATABASE_USER: username of database user 
+- DATABASE_USER: username of database user
 - DATABASE_PASSWORD: password of database user
+- DATABASE_PORT: port of datatbase, default to 3306 for MySql and 5432 for PostgreSQL
 - GLACIER_VAULT_NAME: name of Glacier vault that will be created
 - AWS_DEFAULT_REGION: AWS region where Glacier vault will be created
 - AWS_ACCESS_KEY_ID: access key for your AWS account
