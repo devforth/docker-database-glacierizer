@@ -2,12 +2,52 @@ import os
 import boto3
 import logging.config
 from datetime import datetime
+from slack_sdk.webhook import WebhookClient
 
 from apscheduler.triggers.cron import CronTrigger
 from apscheduler.schedulers.background import BlockingScheduler
 
 logging.config.fileConfig('logging.ini')
 logger = logging.getLogger('ddg_scheduler')
+
+
+def send_slack_message(environment, message, success=True):
+    webhook_url = environment['SLACK_WEBHOOK']
+    project_name = environment['PROJECT_NAME']
+
+    if project_name and len(project_name) > 0:
+        project_name += " "
+
+    if not webhook_url:
+        return
+    try:
+        client = WebhookClient(webhook_url)
+        response = client.send(
+            attachments=[
+                {
+                    "color": "#36a64f" if success else "#ee2700",
+                    "blocks": [
+                        {
+                            "type": "header",
+                            "text": {
+                                "type": "plain_text",
+                                "text": f"{project_name}Glacierizer"
+                            }
+                        },
+                        {
+                            "type": "section",
+                            "text": {
+                                "type": "plain_text",
+                                "text": message
+                            }
+                        }
+                    ]
+                }
+            ]
+        )
+        logger.info(message)
+    except Exception as e:
+        logger.exception(e)
 
 
 def cast_to_type(value, cast_type):
@@ -34,6 +74,8 @@ def get_env():
         'AWS_DEFAULT_REGION': {'type': str},
         'AWS_ACCESS_KEY_ID': {'type': str},
         'AWS_SECRET_ACCESS_KEY': {'type': str},
+        'PROJECT_NAME': {'type': str, 'required': False},
+        'SLACK_WEBHOOK': {'type': str, 'required': False}
     }
 
     for name, options in env_variables.items():
@@ -75,7 +117,7 @@ def dump_database():
     dump_path = os.path.join('/tmp', filename)
 
     dump_database_templates = {
-        'mysql': 'mysqldump -h {host} -u {user} -p{password} --databases {database} -P {port} --protocol tcp | gzip -9 > {dump_path}',
+        'mysql': 'set -o pipefail; mysqldump -h {host} -u {user} -p{password} --databases {database} -P {port} --protocol tcp | gzip -9 > {dump_path}',
         'postgresql': 'PGPASSWORD={password} pg_dump -h {host} -U {user} -d {database} -p {port} -Fp -Z9 > {dump_path}',
     }
 
@@ -91,11 +133,21 @@ def dump_database():
             port=environment.get('DATABASE_PORT'),
             dump_path=dump_path.format(database=environment.get('DATABASE_NAME')),
         )
-        return_code = os.system(dump_command)
+        wait_exit_status = os.system(dump_command)
+        exit_status = os.waitstatus_to_exitcode(wait_exit_status)
 
-        if return_code != 0:
+        if wait_exit_status != 0 or exit_status != 0:
             logger.error("RETURN CODE OF DUMP PROCESS != 0. CHECK OUTPUT ABOVE FOR ERRORS!")
+            send_slack_message(environment, "Failed to create DB dump. Please check the error in the container logs.", False)
         else:
+            file_size = 0
+
+            try:
+                file_size = os.path.getsize(dump_path) / 1024
+            except Exception as e:
+                logger.error("Failed to get size of file.")
+                logger.exception(e)
+
             logger.info(f'{datetime.now()}: Backup created. Uploading to glacier')
             try:
                 glacier = boto3.client('glacier')
@@ -107,8 +159,10 @@ def dump_database():
                         body=f,
                     ))
                     logger.info('Glacier upload done.')
+                    send_slack_message(environment, f"Successfully created and uploaded DB dump ({round(file_size, 2)} KB).")
             except Exception as e:
                 logger.exception(e)
+                send_slack_message(environment, f"Failed to upload DB dump ({round(file_size, 2)} KB) to AWS Glacier. Please check the error in the container logs.", False)
     else:
         logger.error(f'Database of type {database_type} is not supported. If you see this message something went horribly wrong.')
 
@@ -118,7 +172,7 @@ if __name__ == "__main__":
 
     if environment.get('TEST'):
         import time
-        time.sleep(30)
+        time.sleep(10)
         dump_database()
         time.sleep(300)
     else:

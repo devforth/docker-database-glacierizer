@@ -20,8 +20,10 @@ Environment values meaning:
 - AWS_DEFAULT_REGION: AWS region where Glacier vault will be created
 - AWS_ACCESS_KEY_ID: access key for your AWS account
 - AWS_SECRET_ACCESS_KEY: secret key for your AWS account
+- SLACK_WEBHOOK: incoming [webhook url](https://my.slack.com/services/new/incoming-webhook) for posting messages to a channel
+- PROJECT_NAME: project name that will be send in slack message
 
 ## Notes
-Currently only supports one database per docker container for either PostgreSQL or MySQL databases. 
+Currently only supports one database per docker container for either PostgreSQL or MySQL databases.
 
 Was only tested on MySQL 5.6 and PostgreSQL 10.11, but should work just fine with other versions as well.
