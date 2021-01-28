@@ -23,6 +23,7 @@ def send_slack_message(environment, message, success=True):
     try:
         client = WebhookClient(webhook_url)
         response = client.send(
+            fallback=message,
             attachments=[
                 {
                     "color": "#36a64f" if success else "#ee2700",
