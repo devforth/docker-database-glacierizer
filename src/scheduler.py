@@ -11,9 +11,19 @@ logging.config.fileConfig('logging.ini')
 logger = logging.getLogger('ddg_scheduler')
 
 
+def sizeof_fmt(num):
+    for unit in ['B', 'KiB', 'MiB', 'GiB', 'TiB']:
+        if abs(num) < 1024.0:
+            return "%.1f%s" % (num, unit)
+        num /= 1024.0
+    return "%.1f%s" % (num, 'PiB')
+
+
 def send_slack_message(environment, message, success=True):
     webhook_url = environment['SLACK_WEBHOOK']
     project_name = environment['PROJECT_NAME']
+
+    logger.info(message)
 
     if project_name and len(project_name) > 0:
         project_name += " "
@@ -46,7 +56,6 @@ def send_slack_message(environment, message, success=True):
                 }
             ]
         )
-        logger.info(message)
     except Exception as e:
         logger.exception(e)
 
@@ -144,7 +153,7 @@ def dump_database():
             file_size = 0
 
             try:
-                file_size = os.path.getsize(dump_path) / 1024
+                file_size = os.path.getsize(dump_path)
             except Exception as e:
                 logger.error("Failed to get size of file.")
                 logger.exception(e)
@@ -160,10 +169,10 @@ def dump_database():
                         body=f,
                     ))
                     logger.info('Glacier upload done.')
-                    send_slack_message(environment, f"Successfully created and uploaded DB dump ({round(file_size, 2)} KB).")
+                    send_slack_message(environment, f"Successfully created and uploaded DB dump ({sizeof_fmt(file_size)}).")
             except Exception as e:
                 logger.exception(e)
-                send_slack_message(environment, f"Failed to upload DB dump ({round(file_size, 2)} KB) to AWS Glacier. Please check the error in the container logs.", False)
+                send_slack_message(environment, f"Failed to upload DB dump ({sizeof_fmt(file_size)}) to AWS Glacier. Please check the error in the container logs.", False)
     else:
         logger.error(f'Database of type {database_type} is not supported. If you see this message something went horribly wrong.')
 
