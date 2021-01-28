@@ -68,7 +68,7 @@ def get_env():
         'DATABASE_HOST': {'type': str},
         'DATABASE_NAME': {'type': str},
         'DATABASE_USER': {'type': str},
-        'DATABASE_PASSWORD': {'type': int},
+        'DATABASE_PASSWORD': {'type': str},
         'DATABASE_PORT': {'type': int, 'required': False, 'default': 0},
         'GLACIER_VAULT_NAME': {'type': str},
         'AWS_DEFAULT_REGION': {'type': str},
