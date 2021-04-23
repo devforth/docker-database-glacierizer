@@ -33,7 +33,6 @@ def send_slack_message(environment, message, success=True):
     try:
         client = WebhookClient(webhook_url)
         response = client.send(
-            fallback=message,
             attachments=[
                 {
                     "color": "#36a64f" if success else "#ee2700",
@@ -127,8 +126,8 @@ def dump_database():
     dump_path = os.path.join('/tmp', filename)
 
     dump_database_templates = {
-        'mysql': 'set -o pipefail; mysqldump -h {host} -u {user} -p{password} --databases {database} -P {port} --protocol tcp | gzip -9 > {dump_path}',
-        'postgresql': 'PGPASSWORD={password} pg_dump -h {host} -U {user} -d {database} -p {port} -Fp -Z9 > {dump_path}',
+        'mysql': 'set -o pipefail; mysqldump -h "{host}" -u "{user}" -p"{password}" --databases "{database}" -P {port} --protocol tcp | gzip -9 > {dump_path}',
+        'postgresql': 'PGPASSWORD="{password}" pg_dump -h "{host}" -U "{user}" -d "{database}" -p {port} -Fp -Z9 > {dump_path}',
     }
 
     database_type = environment.get('DATABASE_TYPE').lower()
@@ -179,6 +178,8 @@ def dump_database():
 
 if __name__ == "__main__":
     environment = get_env()
+
+    print(f"|{os.getenv('SLACK_WEBHOOK')}|")
 
     if environment.get('TEST'):
         import time
