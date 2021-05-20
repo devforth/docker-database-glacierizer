@@ -1,6 +1,7 @@
 import http.server
 import base64
 import json
+from urllib.parse import urlparse
 
 
 class AuthServerHandler(http.server.BaseHTTPRequestHandler):
@@ -31,9 +32,11 @@ class AuthServerHandler(http.server.BaseHTTPRequestHandler):
             self.send_header('Content-type', 'application/json')
             self.end_headers()
 
-            self.server.on_get()
+            base_path = urlparse(self.path).path
+            if base_path == '/':
+                self.server.on_get()
 
-            self.wfile.write(b'Hello')
+            self.wfile.write(b'Done')
         else:
             self.do_AUTHHEAD()
 
