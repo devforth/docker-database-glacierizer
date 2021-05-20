@@ -13,6 +13,8 @@ services:
 
   mysql_dumper:
     build: ../src
+    ports:
+    - 33399:33399
     environment:
       TEST: "true"
       CRON: "* * * * *"

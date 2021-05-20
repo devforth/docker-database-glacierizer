@@ -5,6 +5,7 @@ RUN apk add --no-cache postgresql-client mysql-client
 RUN python -m pip install apscheduler boto3 slack_sdk
 
 COPY scheduler.py /scheduler/scheduler.py
+COPY server.py /scheduler/server.py
 COPY logging.ini /scheduler/logging.ini
 
 ENV PYTHONUNBUFFERED=TRUE

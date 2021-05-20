@@ -5,7 +5,11 @@ from datetime import datetime
 from slack_sdk.webhook import WebhookClient
 
 from apscheduler.triggers.cron import CronTrigger
-from apscheduler.schedulers.background import BlockingScheduler
+from apscheduler.schedulers.background import BackgroundScheduler
+
+from server import AuthServer
+import time
+import random
 
 logging.config.fileConfig('logging.ini')
 logger = logging.getLogger('ddg_scheduler')
@@ -19,9 +23,16 @@ def sizeof_fmt(num):
     return "%.1f%s" % (num, 'PiB')
 
 
-def send_slack_message(environment, message, success=True):
+def send_slack_message(environment, message, type='SUCCESS'):
     webhook_url = environment['SLACK_WEBHOOK']
     project_name = environment['PROJECT_NAME']
+
+    color_map = {
+        'SUCCESS': '#36a64f',
+        'FAIL': '#ee2700',
+        'OTHER': '#FFCC00'
+    }
+    fallback_color = '#808080'
 
     logger.info(message)
 
@@ -35,7 +46,7 @@ def send_slack_message(environment, message, success=True):
         response = client.send(
             attachments=[
                 {
-                    "color": "#36a64f" if success else "#ee2700",
+                    "color": color_map.get(type, fallback_color),
                     "blocks": [
                         {
                             "type": "header",
@@ -73,6 +84,10 @@ def get_env():
     env_variables = {
         'TEST': {'type': bool, 'required': False, 'default': False},
         'CRON': {'type': str},
+        'START_SERVER': {'type': bool, 'required': False, 'default': True},
+        'SERVER_PORT': {'type': int, 'required': False, 'default': 33399},
+        'SERVER_BASIC_AUTH_USER': {'type': str, 'required': False, 'default': 'admin'},
+        'SERVER_BASIC_AUTH_PASSWORD': {'type': str, 'required': False, 'default': 'admin'},
         'DATABASE_TYPE': {'type': str, 'possible_values': ['postgresql', 'mysql']},
         'DATABASE_HOST': {'type': str},
         'DATABASE_NAME': {'type': str},
@@ -147,7 +162,7 @@ def dump_database():
 
         if wait_exit_status != 0 or exit_status != 0:
             logger.error("RETURN CODE OF DUMP PROCESS != 0. CHECK OUTPUT ABOVE FOR ERRORS!")
-            send_slack_message(environment, "Failed to create DB dump. Please check the error in the container logs.", False)
+            send_slack_message(environment, "Failed to create DB dump. Please check the error in the container logs.", 'FAIL')
         else:
             file_size = 0
 
@@ -171,7 +186,7 @@ def dump_database():
                     send_slack_message(environment, f"Successfully created and uploaded DB dump ({sizeof_fmt(file_size)}).")
             except Exception as e:
                 logger.exception(e)
-                send_slack_message(environment, f"Failed to upload DB dump ({sizeof_fmt(file_size)}) to AWS Glacier. Please check the error in the container logs.", False)
+                send_slack_message(environment, f"Failed to upload DB dump ({sizeof_fmt(file_size)}) to AWS Glacier. Please check the error in the container logs.", 'FAIL')
     else:
         logger.error(f'Database of type {database_type} is not supported. If you see this message something went horribly wrong.')
 
@@ -179,14 +194,22 @@ def dump_database():
 if __name__ == "__main__":
     environment = get_env()
 
-    print(f"|{os.getenv('SLACK_WEBHOOK')}|")
-
     if environment.get('TEST'):
         import time
         time.sleep(10)
         dump_database()
         time.sleep(300)
     else:
-        dumper_scheduler = BlockingScheduler()
-        dumper_scheduler.add_job(dump_database, CronTrigger.from_crontab(os.getenv('CRON')))
+        dumper_scheduler = BackgroundScheduler()
+        dumper_scheduler.add_job(dump_database, CronTrigger.from_crontab(environment.get('CRON')))
         dumper_scheduler.start()
+
+        if environment.get('START_SERVER'):
+            def on_get():
+                send_slack_message(environment, 'Backup triggered from server', 'OTHER')
+                dump_database()
+
+            server = AuthServer(('', environment.get('SERVER_PORT')))
+            server.set_auth(environment.get('SERVER_BASIC_AUTH_USER'), environment.get('SERVER_BASIC_AUTH_PASSWORD'))
+            server.set_on_get(on_get)
+            server.serve_forever()
