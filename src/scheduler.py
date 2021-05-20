@@ -82,8 +82,8 @@ def get_env():
     env_variables = {
         'TEST': {'type': bool, 'required': False, 'default': False},
         'CRON': {'type': str},
-        'START_SERVER': {'type': bool, 'required': False, 'default': True},
-        'SERVER_PORT': {'type': int, 'required': False, 'default': 33399},
+        'START_MANUAL_MANAGEMENT_SERVER': {'type': bool, 'required': False, 'default': True},
+        'MANUAL_MANAGEMENT_PORT': {'type': int, 'required': False, 'default': 33399},
         'DATABASE_TYPE': {'type': str, 'possible_values': ['postgresql', 'mysql']},
         'DATABASE_HOST': {'type': str},
         'DATABASE_NAME': {'type': str},
@@ -200,12 +200,12 @@ if __name__ == "__main__":
         dumper_scheduler.add_job(dump_database, CronTrigger.from_crontab(environment.get('CRON')))
         dumper_scheduler.start()
 
-        if environment.get('START_SERVER'):
+        if environment.get('START_MANUAL_MANAGEMENT_SERVER'):
             def on_get():
                 send_slack_message(environment, 'Backup triggered from server', 'OTHER')
                 dump_database()
                 return f"{environment['PROJECT_NAME']} Backup Done"
 
-            server = AuthServer(('', environment.get('SERVER_PORT')), logger)
+            server = AuthServer(('', environment.get('MANUAL_MANAGEMENT_PORT')), logger)
             server.set_on_get(on_get)
             server.serve_forever()

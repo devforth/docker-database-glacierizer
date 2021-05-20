@@ -10,8 +10,8 @@ To use this image you need to setup all of it's environment values. If one of it
 Environment values meaning:
 - TEST: defaults to False, if set to True doesn't start the scheduler or server and instead waits 30 seconds and runs database dump
 - CRON: crontab syntax that is used to determine when to backup database, if you're new to crontab or unsure you can use [crontab.guru](crontab.guru) website;
-- START_SERVER: defaults to True, if set to True starts a server which you can access to manually start database dumping
-- SERVER_PORT: default to 33399
+- START_MANUAL_MANAGEMENT_SERVER: defaults to True, if set to True starts a server which you can access to manually start database dumping
+- MANUAL_MANAGEMENT_PORT: default to 33399
 - DATABASE_TYPE: type of database you want to backup, available values [MySQL, PostgreSQL]
 - DATABASE_HOST: hostname or ip address to database
 - DATABASE_NAME: scheme name to backup
