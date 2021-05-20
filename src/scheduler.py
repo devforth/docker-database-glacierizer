@@ -94,7 +94,7 @@ def get_env():
         'AWS_DEFAULT_REGION': {'type': str},
         'AWS_ACCESS_KEY_ID': {'type': str},
         'AWS_SECRET_ACCESS_KEY': {'type': str},
-        'PROJECT_NAME': {'type': str, 'required': False},
+        'PROJECT_NAME': {'type': str, 'required': True},
         'SLACK_WEBHOOK': {'type': str, 'required': False}
     }
 
