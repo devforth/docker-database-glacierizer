@@ -16,7 +16,7 @@ services:
     ports:
     - 33399:33399
     environment:
-      TEST: "true"
+      TEST: "false"
       CRON: "* * * * *"
 
       DATABASE_TYPE: "MySQL"

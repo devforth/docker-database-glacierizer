@@ -12,8 +12,6 @@ Environment values meaning:
 - CRON: crontab syntax that is used to determine when to backup database, if you're new to crontab or unsure you can use [crontab.guru](crontab.guru) website;
 - START_SERVER: defaults to True, if set to True starts a server which you can access to manually start database dumping
 - SERVER_PORT: default to 33399
-- SERVER_BASIC_AUTH_USER: default to admin; username for server basic auth
-- SERVER_BASIC_AUTH_PASSWORD: default to admin; password for server basic auth
 - DATABASE_TYPE: type of database you want to backup, available values [MySQL, PostgreSQL]
 - DATABASE_HOST: hostname or ip address to database
 - DATABASE_NAME: scheme name to backup
@@ -31,3 +29,6 @@ Environment values meaning:
 Currently only supports one database per docker container for either PostgreSQL or MySQL databases.
 
 Was only tested on MySQL 5.6 and PostgreSQL 10.11, but should work just fine with other versions as well.
+
+If you enabled server for manual dumping it's better to close the port from outside and use `ssh -L` option
+for port forwarding due to lack of security measures for said server.
