@@ -8,8 +8,6 @@ from apscheduler.triggers.cron import CronTrigger
 from apscheduler.schedulers.background import BackgroundScheduler
 
 from server import AuthServer
-import time
-import random
 
 logging.config.fileConfig('logging.ini')
 logger = logging.getLogger('ddg_scheduler')
@@ -209,7 +207,7 @@ if __name__ == "__main__":
                 send_slack_message(environment, 'Backup triggered from server', 'OTHER')
                 dump_database()
 
-            server = AuthServer(('', environment.get('SERVER_PORT')))
+            server = AuthServer(('', environment.get('SERVER_PORT')), logger)
             server.set_auth(environment.get('SERVER_BASIC_AUTH_USER'), environment.get('SERVER_BASIC_AUTH_PASSWORD'))
             server.set_on_get(on_get)
             server.serve_forever()

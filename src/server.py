@@ -52,8 +52,9 @@ class AuthServer(http.server.HTTPServer):
     auth_key = ''
     on_get = lambda: None
 
-    def __init__(self, address):
+    def __init__(self, address, logger):
         super().__init__(address, AuthServerHandler)
+        self.logger = logger
 
     def set_auth(self, username, password):
         self.auth_key = base64.b64encode(
@@ -63,5 +64,5 @@ class AuthServer(http.server.HTTPServer):
         self.on_get = on_get
 
     def serve_forever(self, poll_interval=0.5):
-        print(f'Starting server on {self.server_port}')
+        self.logger.info(f'Starting server on {self.server_port}')
         super().serve_forever(poll_interval=poll_interval)
