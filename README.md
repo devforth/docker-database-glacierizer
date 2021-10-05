@@ -12,7 +12,7 @@ Environment values meaning:
 - CRON: crontab syntax that is used to determine when to backup database, if you're new to crontab or unsure you can use [crontab.guru](crontab.guru) website;
 - START_MANUAL_MANAGEMENT_SERVER: defaults to True, if set to True starts a server which you can access to manually start database dumping
 - MANUAL_MANAGEMENT_PORT: default to 33399
-- DATABASE_TYPE: type of database you want to backup, available values [MySQL, PostgreSQL]
+- DATABASE_TYPE: type of database you want to backup, available values [MySQL, PostgreSQL, ClickHouse]
 - DATABASE_HOST: hostname or ip address to database
 - DATABASE_NAME: scheme name to backup
 - DATABASE_USER: username of database user
