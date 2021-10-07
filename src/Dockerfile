@@ -11,4 +11,4 @@ WORKDIR /scheduler/
 
 COPY . .
 
-CMD python scheduler.py
+ENTRYPOINT [ "python", "scheduler.py" ]

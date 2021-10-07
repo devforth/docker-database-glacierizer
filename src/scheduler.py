@@ -1,14 +1,15 @@
 import logging.config
 
+logging.config.fileConfig('logging.ini')
+
 from apscheduler.triggers.cron import CronTrigger
-from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.schedulers.background import BackgroundScheduler, BlockingScheduler
 
 from env import get_env
 from server import AuthServer
 from dump import dump_database
 from slack import send_slack_message
 
-logging.config.fileConfig('logging.ini')
 logger = logging.getLogger('ddgscheduler')
 
 
@@ -21,7 +22,11 @@ if __name__ == "__main__":
         dump_database(environment)
         time.sleep(300)
     else:
-        dumper_scheduler = BackgroundScheduler()
+        if environment.get('START_MANUAL_MANAGEMENT_SERVER'):
+            dumper_scheduler = BackgroundScheduler()
+        else:
+            dumper_scheduler = BlockingScheduler()
+
         dumper_scheduler.add_job(lambda: dump_database(environment), CronTrigger.from_crontab(environment.get('CRON')))
         dumper_scheduler.start()
 

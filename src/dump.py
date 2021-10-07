@@ -1,7 +1,7 @@
 import os
 import gzip
 import boto3
-import logging.config
+import logging
 from datetime import datetime
 
 from clickhouse_driver import Client as ClickhouseClient
@@ -9,7 +9,6 @@ from clickhouse_driver import Client as ClickhouseClient
 from slack import send_slack_message, sizeof_fmt
 
 
-logging.config.fileConfig('logging.ini')
 logger = logging.getLogger('ddgscheduler')
 
 

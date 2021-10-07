@@ -1,7 +1,6 @@
-import logging.config
+import logging
 from slack_sdk.webhook import WebhookClient
 
-logging.config.fileConfig('logging.ini')
 logger = logging.getLogger('ddgscheduler')
 
 
