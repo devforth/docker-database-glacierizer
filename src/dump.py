@@ -87,7 +87,7 @@ def dump_database(environment):
     dump_path = os.path.join('/tmp', filename)
 
     dump_database_methods = {
-        'mysql': dump_general('set -o pipefail; mysqldump -h "{host}" -u "{user}" -p"{password}" --databases "{database}" -P {port} --protocol tcp | gzip -9 > {dump_path}'),
+        'mysql': dump_general('/bin/bash -c \'set -o pipefail; mysqldump -h "{host}" -u "{user}" -p"{password}" --databases "{database}" -P {port} --protocol tcp | gzip -9 > {dump_path}\''),
         'postgresql': dump_general('PGPASSWORD="{password}" pg_dump -h "{host}" -U "{user}" -d "{database}" -p {port} -Fp -Z9 > {dump_path}'),
         'clickhouse': dump_clickhouse,
     }
