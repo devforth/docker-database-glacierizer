@@ -1,4 +1,5 @@
 import os
+from socket import gethostname
 
 
 def cast_to_type(value, cast_type):
@@ -27,7 +28,7 @@ def get_env():
         'AWS_DEFAULT_REGION': {'type': str},
         'AWS_ACCESS_KEY_ID': {'type': str},
         'AWS_SECRET_ACCESS_KEY': {'type': str},
-        'PROJECT_NAME': {'type': str, 'required': True},
+        'PROJECT_NAME': {'type': str, 'required': False, 'default': gethostname()},
         'SLACK_WEBHOOK': {'type': str, 'required': False}
     }
 
@@ -60,6 +61,8 @@ def get_env():
 
     if environment['DATABASE_PORT'] == 0:
         raise AttributeError(f'Couldn\'t figure out value for DATABASE_PORT. Please specify it as environment value')
+
+    print(environment)
 
     return environment
 
