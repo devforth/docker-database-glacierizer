@@ -21,7 +21,8 @@ services:
       DATABASE_USER: "example_user"
       DATABASE_PASSWORD: "example_password"
 
-      GLACIER_VAULT_NAME: "example_vault_name"
+      GLACIER_BUCKET_NAME: "example-bucket-name"
+      GLACIER_STORAGE_CLASS: "flexible"
 
       AWS_DEFAULT_REGION: "eu-central-1"
       AWS_ACCESS_KEY_ID: "example_access_key"

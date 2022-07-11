@@ -11,6 +11,12 @@ from slack import send_slack_message, sizeof_fmt
 
 logger = logging.getLogger('ddgscheduler')
 
+storage_class_map = {
+    'instant': 'GLACIER_IR',
+    'flexible': 'GLACIER',
+    'deep': 'DEEP_ARCHIVE',
+}
+
 
 def dump_general(template):
     def wrapper(environment, output_path):
@@ -105,22 +111,32 @@ def dump_database(environment):
             logger.error("Failed to get size of file.")
             logger.exception(e)
 
-        logger.info(f'{datetime.now()}: Backup created. Uploading to glacier')
+        logger.info(f'{datetime.now()}: Backup created. Uploading to S3')
         try:
-            glacier = boto3.client('glacier')
-            glacier.create_vault(vaultName=environment.get('GLACIER_VAULT_NAME'))
-            with open(dump_path, 'rb') as f:
-                logger.info(glacier.upload_archive(
-                    vaultName=environment.get('GLACIER_VAULT_NAME'),
-                    archiveDescription=filename,
-                    body=f,
+            s3 = boto3.client('s3')
+            try:
+                s3.create_bucket(
+                    Bucket=environment.get('GLACIER_BUCKET_NAME'),
+                    CreateBucketConfiguration={'LocationConstraint': environment.get('AWS_DEFAULT_REGION')},
+                )
+            except (s3.exceptions.BucketAlreadyExists, s3.exceptions.BucketAlreadyOwnedByYou):
+                pass
+
+            with open(dump_path, 'rb') as file:
+                logger.info(s3.put_object(
+                    Bucket=environment.get('GLACIER_BUCKET_NAME'),
+                    Key=filename,
+                    Body=file,
+                    StorageClass=storage_class_map[environment.get('GLACIER_STORAGE_CLASS')]
                 ))
-                logger.info('Glacier upload done.')
+                logger.info('Archive upload done.')
                 send_slack_message(environment, f"Successfully created and uploaded DB dump ({sizeof_fmt(file_size)}).")
         except Exception as e:
             logger.exception(e)
-            send_slack_message(environment,
-                               f"Failed to upload DB dump ({sizeof_fmt(file_size)}) to AWS Glacier. Please check the error in the container logs.",
-                               'FAIL')
+            send_slack_message(
+                environment,
+                f"Failed to upload DB dump ({sizeof_fmt(file_size)}) to AWS S3 ({storage_class_map.get(environment.get('GLACIER_STORAGE_CLASS'), 'UNKNOWN')}). Please check the error in the container logs.",
+                'FAIL'
+            )
     else:
         logger.error(f'Database of type {database_type} is not supported. Supported types are: {dump_database_methods.keys()}')

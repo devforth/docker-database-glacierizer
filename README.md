@@ -18,7 +18,8 @@ Environment values meaning:
 - DATABASE_USER: username of database user
 - DATABASE_PASSWORD: password of database user
 - DATABASE_PORT: port of datatbase, default to 3306 for MySql and 5432 for PostgreSQL
-- GLACIER_VAULT_NAME: name of Glacier vault that will be created
+- GLACIER_BUCKET_NAME: name of S3 bucket that will be created
+- GLACIER_STORAGE_CLASS: name of glacier storage class that will be used for uploaded files, available values [instant, flexible, deep]
 - AWS_DEFAULT_REGION: AWS region where Glacier vault will be created
 - AWS_ACCESS_KEY_ID: access key for your AWS account
 - AWS_SECRET_ACCESS_KEY: secret key for your AWS account

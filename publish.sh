@@ -1,4 +1,6 @@
 #!/bin/bash
 
-docker build src/ -t devforth/docker-database-glacierizer:latest
-docker push devforth/docker-database-glacierizer:latest
+TAG="${1:-latest}"
+
+docker build src/ -t devforth/docker-database-glacierizer:$TAG
+docker push devforth/docker-database-glacierizer:$TAG
