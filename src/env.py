@@ -28,6 +28,7 @@ def get_env():
         'DATABASE_PORT': {'type': int, 'required': False, 'default': 0},
         'GLACIER_BUCKET_NAME': {'type': str, 'regex': '(?!(^xn--|-s3alias$))^[a-z0-9][a-z0-9-]{1,61}[a-z0-9]$'},
         'GLACIER_STORAGE_CLASS': {'type': str, 'enum': ['instant', 'flexible', 'deep'], 'default': 'flexible'},
+        'GLACIER_EXPIRE_AFTER': {'type': int, 'default': 0},
         'AWS_DEFAULT_REGION': {'type': str},
         'AWS_ACCESS_KEY_ID': {'type': str},
         'AWS_SECRET_ACCESS_KEY': {'type': str},

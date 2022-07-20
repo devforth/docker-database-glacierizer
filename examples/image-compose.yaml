@@ -23,6 +23,7 @@ services:
 
       GLACIER_BUCKET_NAME: "example-bucket-name"
       GLACIER_STORAGE_CLASS: "flexible"
+      GLACIER_EXPIRE_AFTER: 14
 
       AWS_DEFAULT_REGION: "eu-central-1"
       AWS_ACCESS_KEY_ID: "example_access_key"
