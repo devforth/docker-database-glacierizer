@@ -2,6 +2,7 @@ import os
 import gzip
 import boto3
 import logging
+from glacier_upload import upload
 from datetime import datetime
 
 from clickhouse_driver import Client as ClickhouseClient
@@ -109,14 +110,17 @@ def dump_database(environment):
         try:
             glacier = boto3.client('glacier')
             glacier.create_vault(vaultName=environment.get('GLACIER_VAULT_NAME'))
-            with open(dump_path, 'rb') as f:
-                logger.info(glacier.upload_archive(
-                    vaultName=environment.get('GLACIER_VAULT_NAME'),
-                    archiveDescription=filename,
-                    body=f,
-                ))
-                logger.info('Glacier upload done.')
-                send_slack_message(environment, f"Successfully created and uploaded DB dump ({sizeof_fmt(file_size)}).")
+            
+            upload.upload_archive(
+                vault_name=environment.get('GLACIER_VAULT_NAME'),
+                file_name=[dump_path],
+                arc_desc=filename,
+                part_size_mb=128,
+                num_threads=1,
+                upload_id=None
+            )
+            logger.info('Glacier upload done.')
+            send_slack_message(environment, f"Successfully created and uploaded DB dump ({sizeof_fmt(file_size)}).")
         except Exception as e:
             logger.exception(e)
             send_slack_message(environment,

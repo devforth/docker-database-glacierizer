@@ -6,7 +6,7 @@ RUN wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | apt-k
 
 RUN apt update
 RUN apt install postgresql-client mariadb-client -y
-RUN python -m pip install apscheduler boto3 slack_sdk clickhouse_driver
+RUN python -m pip install apscheduler boto3 slack_sdk clickhouse_driver glacier_upload
 
 ENV PYTHONUNBUFFERED=TRUE
 
