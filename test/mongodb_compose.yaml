@@ -1,20 +1,25 @@
 version: "3.0"
 
 services:
-  postgresql_db:
-    image: postgres:10.11-alpine
+  mongo_db:
+    image: mongo:5.0.17
     environment:
-      POSTGRES_USER: test
-      POSTGRES_PASSWORD: test
-      POSTGRES_DB: test_db
+      MONGO_INITDB_ROOT_USERNAME: test
+      MONGO_INITDB_ROOT_PASSWORD: test
+      MONGO_INITDB_DATABASE: test_db
+    ports:
+      - "27017:27017"
 
-  postgresql_dumper:
-    build: ../src
+  mongodb_dumper:
+    build: ..
     environment:
+      TEST: "false"
+
       CRON: "* * * * *"
 
-      DATABASE_TYPE: "PostgreSQL"
-      DATABASE_HOST: "postgresql_db"
+      DATABASE_TYPE: "MongoDB"
+      DATABASE_HOST: "mongo_db"
+      DATABASE_PORT: "27017"
       DATABASE_NAME: "test_db"
       DATABASE_USER: "test"
       DATABASE_PASSWORD: "test"

@@ -2,28 +2,30 @@
 
 Docker image for automatic database backups to AWS S3 Glacier with cron-syntax scheduler. [Docker Hub](https://hub.docker.com/r/devforth/docker-database-glacierizer)
 
-Ready to use simple example how to [backup SQL Database wtih this script](https://hinty.io/vprotasenia/how-to-backup-sql-database-simple-ready-to-use-script/)
+Ready to use simple example how to [backup SQL Database with this script](https://hinty.io/vprotasenia/how-to-backup-sql-database-simple-ready-to-use-script/)
 
 ## Hints on usage
-To use this image you need to setup all of it's environment values. If one of it's values are missing, empty or of a wrong type, it will print out a message to log to let you know.
+To use this image you need to set up all of its environment values. If one of its values are missing, empty or of a wrong type, it will print out a message to log to let you know.
 
-Environment values meaning:
-- TEST: defaults to False, if set to True doesn't start the scheduler or server and instead waits 30 seconds and runs database dump
-- CRON: crontab syntax that is used to determine when to backup database, if you're new to crontab or unsure you can use [crontab.guru](crontab.guru) website;
-- START_MANUAL_MANAGEMENT_SERVER: defaults to True, if set to True starts a server which you can access to manually start database dumping
-- MANUAL_MANAGEMENT_PORT: default to 33399
-- DATABASE_TYPE: type of database you want to backup, available values [MySQL, PostgreSQL, ClickHouse]
-- DATABASE_HOST: hostname or ip address to database
-- DATABASE_NAME: scheme name to backup
-- DATABASE_USER: username of database user
-- DATABASE_PASSWORD: password of database user
-- DATABASE_PORT: port of datatbase, default to 3306 for MySql and 5432 for PostgreSQL
-- GLACIER_VAULT_NAME: name of Glacier vault that will be created
-- AWS_DEFAULT_REGION: AWS region where Glacier vault will be created
-- AWS_ACCESS_KEY_ID: access key for your AWS account
-- AWS_SECRET_ACCESS_KEY: secret key for your AWS account
-- SLACK_WEBHOOK: incoming [webhook url](https://my.slack.com/services/new/incoming-webhook) for posting messages to a channel
-- PROJECT_NAME: project name that will be send in slack message
+| Environment                    | Description                                                                                                                                     | Required | Default            |
+|--------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------|----------|--------------------|
+| CRON                           | Crontab syntax used to determine when to do a backup. You can use [crontab.guru](crontab.guru) website to get help with cron syntax             | ✓        |                    |
+| START_MANUAL_MANAGEMENT_SERVER | When set to true, starts a server on specified port to which you can send a http request to manually trigger backup process                     |          | `true`             |
+| MANUAL_MANAGEMENT_PORT         | Prot for manual management server                                                                                                               |          | 33399              |
+| DATABASE_TYPE                  | Type of the database you want to backup. Available values [MySQL, PostgreSQL, ClickHouse, MongoDB]                                              | ✓        |                    |
+| DATABASE_HOST                  | Hostname or IP address to access database                                                                                                       | ✓        |                    |
+| DATABASE_PORT                  | Port to access database. If set to 0 selects a default port for a specified type (3306 for MySQL, 5432 for PostgreSQL).                         |          | 0                  |
+| DATABASE_USER                  | Username to access database                                                                                                                     | ✓        |                    |
+| DATABASE_PASSWORD              | Password to access database                                                                                                                     | ✓        |                    |
+| AUTH_DATABASE_NAME             | Name of the authentication database. Only used for MongoDB                                                                                      |          | admin              |
+| GLACIER_BUCKET_NAME            | Name of the S3 bucket where dumps will be stored. If bucket does not exists it will be created                                                  | ✓        |                    |
+| GLACIER_STORAGE_CLASS          | Glacier storage class that will be used to store uploaded dumps in S3. Available values [instant, flexible, deep]                               |          | flexible           |
+| GLACIER_EXPIRE_AFTER           | If set to a value greater than 0 creates a lifecycle rule on whole S3 bucket that will delete an object after set amount of day it was uploaded |          | 0                  |
+| AWS_DEFAULT_REGION             | Region where S3 bucket will be created                                                                                                          | ✓        |                    |
+| AWS_ACCESS_KEY_ID              | Access key for AWS account                                                                                                                      | ✓        |                    |
+| AWS_SECRET_ACCESS_KEY          | Secret key for AWS account                                                                                                                      | ✓        |                    |
+| SLACK_WEBHOOK                  | If set it will be sending a message to Slack every time it finishes (successfully or not) dumping database and uploading dump                   |          |                    |
+| PROJECT_NAME                   | Used as a "header" for slack message. If not set default to machine hostname                                                                    |          | <machine hostname> |
 
 ## Notes
 Currently only supports one database per docker container for either PostgreSQL or MySQL databases.
