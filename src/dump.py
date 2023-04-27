@@ -19,16 +19,20 @@ storage_class_map = {
 }
 
 
-def dump_general(template):
+def dump_general(template, file_ext):
     def wrapper(environment, output_path):
+        dump_path = output_path + file_ext
         dump_command = template.format(
             host=environment.get('DATABASE_HOST'),
             user=environment.get('DATABASE_USER'),
             password=environment.get('DATABASE_PASSWORD'),
             database=environment.get('DATABASE_NAME'),
+            auth_database=environment.get('AUTH_DATABASE_NAME'),
             port=environment.get('DATABASE_PORT'),
-            dump_path=output_path,
+            dump_path=dump_path,
         )
+
+        logger.info(f'{datetime.now()}: Running dm command: {dump_command}')
 
         wait_exit_status = os.system(dump_command)
         exit_status = os.waitstatus_to_exitcode(wait_exit_status)
@@ -37,10 +41,14 @@ def dump_general(template):
             logger.error("RETURN CODE OF DUMP PROCESS != 0. CHECK OUTPUT ABOVE FOR ERRORS!")
             send_slack_message(environment, "Failed to create DB dump. Please check the error in the container logs.", 'FAIL')
             raise Exception('Failed to create dump of database')
+
+        return dump_path
+
     return wrapper
 
 
 def dump_clickhouse(environment, output_path):
+    dump_path = output_path + '.sql.gz'
     def stringify_row(row):
         new_row = []
 
@@ -81,21 +89,22 @@ def dump_clickhouse(environment, output_path):
 
         dump_output += ';\n\n'
 
-    with gzip.GzipFile(output_path, 'w+') as f:
+    with gzip.GzipFile(dump_path, 'w+') as f:
         f.write(dump_output.encode())
 
-    return output_path
+    return dump_path
 
 
 def dump_database(environment):
     logger.info(f'{datetime.now()}: Creating backup')
 
-    filename = f'{environment.get("DATABASE_TYPE")}_{environment.get("DATABASE_NAME")}_{datetime.now().strftime("%d_%m_%Y")}.sql.gz'
+    filename = f'{environment.get("DATABASE_TYPE")}_{environment.get("DATABASE_NAME")}_{datetime.now().strftime("%d_%m_%Y")}'
     dump_path = os.path.join('/tmp', filename)
 
     dump_database_methods = {
-        'mysql': dump_general('/bin/bash -c \'set -o pipefail; mysqldump -h "{host}" -u "{user}" -p"{password}" --databases "{database}" -P {port} --protocol tcp | gzip -9 > {dump_path}\''),
-        'postgresql': dump_general('PGPASSWORD="{password}" pg_dump -h "{host}" -U "{user}" -d "{database}" -p {port} -Fp -Z9 > {dump_path}'),
+        'mysql': dump_general('/bin/bash -c \'set -o pipefail; mysqldump -h "{host}" -u "{user}" -p"{password}" --databases "{database}" -P {port} --protocol tcp | gzip -9 > {dump_path}\'', '.sql.gz'),
+        'postgresql': dump_general('PGPASSWORD="{password}" pg_dump -h "{host}" -U "{user}" -d "{database}" -p {port} -Fp -Z9 > {dump_path}', 'sql.gz'),
+        'mongodb': dump_general('/bin/bash -c \'rm -rf "*.folder" && mongodump -h "{host}" --port {port} -u "{user}" -p "{password}" -d "{database}" --authenticationDatabase="{auth_database}" --out "{dump_path}.folder" && tar -czf {dump_path} -C "{dump_path}.folder" .\'', '.tar.gz'),
         'clickhouse': dump_clickhouse,
     }
 
@@ -103,7 +112,7 @@ def dump_database(environment):
     dump_database_method = dump_database_methods.get(database_type)
 
     if dump_database_method:
-        dump_database_method(environment, dump_path)
+        dump_path = dump_database_method(environment, dump_path)
 
         file_size = 0
         try:

@@ -1,0 +1,33 @@
+version: "3.0"
+
+services:
+  mongo_db:
+    image: mongo:5.0.17
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: test
+      MONGO_INITDB_ROOT_PASSWORD: test
+      MONGO_INITDB_DATABASE: test_db
+    ports:
+      - "27017:27017"
+
+  mongodb_dumper:
+    build: ..
+    environment:
+      TEST: "false"
+
+      CRON: "* * * * *"
+
+      DATABASE_TYPE: "MongoDB"
+      DATABASE_HOST: "mongo_db"
+      DATABASE_PORT: "27017"
+      DATABASE_NAME: "test_db"
+      DATABASE_USER: "test"
+      DATABASE_PASSWORD: "test"
+
+      GLACIER_BUCKET_NAME: "example-bucket-name"
+      GLACIER_STORAGE_CLASS: "flexible"
+      GLACIER_EXPIRE_AFTER: 1
+
+      AWS_DEFAULT_REGION: "eu-central-1"
+      AWS_ACCESS_KEY_ID: "1"
+      AWS_SECRET_ACCESS_KEY: "1"

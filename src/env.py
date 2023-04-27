@@ -20,12 +20,13 @@ def get_env():
         'CRON': {'type': str},
         'START_MANUAL_MANAGEMENT_SERVER': {'type': bool, 'required': False, 'default': True},
         'MANUAL_MANAGEMENT_PORT': {'type': int, 'required': False, 'default': 33399},
-        'DATABASE_TYPE': {'type': str, 'enum': ['postgresql', 'mysql', 'clickhouse']},
+        'DATABASE_TYPE': {'type': str, 'enum': ['postgresql', 'mysql', 'clickhouse', 'mongodb']},
         'DATABASE_HOST': {'type': str},
         'DATABASE_NAME': {'type': str},
         'DATABASE_USER': {'type': str},
         'DATABASE_PASSWORD': {'type': str},
         'DATABASE_PORT': {'type': int, 'required': False, 'default': 0},
+        'AUTH_DATABASE_NAME': {'type': str, 'required': False, 'default': 'admin'},
         'GLACIER_BUCKET_NAME': {'type': str, 'regex': '(?!(^xn--|-s3alias$))^[a-z0-9][a-z0-9-]{1,61}[a-z0-9]$'},
         'GLACIER_STORAGE_CLASS': {'type': str, 'enum': ['instant', 'flexible', 'deep'], 'default': 'flexible'},
         'GLACIER_EXPIRE_AFTER': {'type': int, 'default': 0},
@@ -62,13 +63,12 @@ def get_env():
             'mysql': 3306,
             'postgresql': 5432,
             'clickhouse': 9000,
+            'mongodb': 27017,
         }
         environment['DATABASE_PORT'] = port_map.get(environment['DATABASE_TYPE'].lower(), 0)
 
     if environment['DATABASE_PORT'] == 0:
-        raise AttributeError(f"Couldn't figure out value for DATABASE_PORT. Please specify it as environment value")
-
-    print(environment)
+        raise AttributeError(f"Couldn't figure out value for DATABASE_PORT. Please specify it in environment values")
 
     return environment
 
