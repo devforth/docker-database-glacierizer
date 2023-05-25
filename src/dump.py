@@ -19,6 +19,15 @@ storage_class_map = {
 }
 
 
+def __run_command(command: str):
+    logger.info(f'{datetime.now()}: Running dm command: {command}')
+
+    wait_exit_status = os.system(command)
+    exit_status = os.waitstatus_to_exitcode(wait_exit_status)
+
+    return exit_status
+
+
 def dump_general(template, file_ext):
     def wrapper(environment, output_path):
         dump_path = output_path + file_ext
@@ -32,12 +41,9 @@ def dump_general(template, file_ext):
             dump_path=dump_path,
         )
 
-        logger.info(f'{datetime.now()}: Running dm command: {dump_command}')
+        exit_status = __run_command(dump_command)
 
-        wait_exit_status = os.system(dump_command)
-        exit_status = os.waitstatus_to_exitcode(wait_exit_status)
-
-        if wait_exit_status != 0 or exit_status != 0:
+        if exit_status != 0:
             logger.error("RETURN CODE OF DUMP PROCESS != 0. CHECK OUTPUT ABOVE FOR ERRORS!")
             send_slack_message(environment, "Failed to create DB dump. Please check the error in the container logs.", 'FAIL')
             raise Exception('Failed to create dump of database')
@@ -45,6 +51,37 @@ def dump_general(template, file_ext):
         return dump_path
 
     return wrapper
+
+
+def dump_mongodb(environment, output_path):
+    template_auth = '/bin/bash -c \'mongodump -h "{host}" --port {port} -u "{user}" -p "{password}" -d "{database}" --authenticationDatabase="{auth_database}" --out "{dump_path}.folder" && tar -czf {dump_path} -C "{dump_path}.folder" . && rm -rf "{dump_path}.folder"\''
+    template_noauth = '/bin/bash -c \'mongodump -h "{host}" --port {port} -d "{database}" --out "{dump_path}.folder" && tar -czf {dump_path} -C "{dump_path}.folder" . && rm -rf "{dump_path}.folder"\''
+
+    dump_path = output_path + '.tar.gz'
+
+    if environment.get('DATABASE_USER') == '' and environment.get('DATABASE_PASSWORD') == '':
+        template = template_noauth
+    else:
+        template = template_auth
+
+    dump_command = template.format(
+        host=environment.get('DATABASE_HOST'),
+        user=environment.get('DATABASE_USER'),
+        password=environment.get('DATABASE_PASSWORD'),
+        database=environment.get('DATABASE_NAME'),
+        auth_database=environment.get('AUTH_DATABASE_NAME'),
+        port=environment.get('DATABASE_PORT'),
+        dump_path=dump_path,
+    )
+
+    exit_status = __run_command(dump_command)
+    if exit_status != 0:
+        logger.error("RETURN CODE OF DUMP PROCESS != 0. CHECK OUTPUT ABOVE FOR ERRORS!")
+        send_slack_message(environment, "Failed to create DB dump. Please check the error in the container logs.",
+                           'FAIL')
+        raise Exception('Failed to create dump of database')
+
+    return dump_path
 
 
 def dump_clickhouse(environment, output_path):
@@ -104,7 +141,7 @@ def dump_database(environment):
     dump_database_methods = {
         'mysql': dump_general('/bin/bash -c \'set -o pipefail; mysqldump -h "{host}" -u "{user}" -p"{password}" --databases "{database}" -P {port} --protocol tcp | gzip -9 > {dump_path}\'', '.sql.gz'),
         'postgresql': dump_general('PGPASSWORD="{password}" pg_dump -h "{host}" -U "{user}" -d "{database}" -p {port} -Fp -Z9 > {dump_path}', 'sql.gz'),
-        'mongodb': dump_general('/bin/bash -c \'rm -rf "*.folder" && mongodump -h "{host}" --port {port} -u "{user}" -p "{password}" -d "{database}" --authenticationDatabase="{auth_database}" --out "{dump_path}.folder" && tar -czf {dump_path} -C "{dump_path}.folder" .\'', '.tar.gz'),
+        'mongodb': dump_mongodb,
         'clickhouse': dump_clickhouse,
     }
 
@@ -125,9 +162,10 @@ def dump_database(environment):
         try:
             s3 = boto3.client('s3')
             try:
+                region = environment.get('AWS_DEFAULT_REGION')
                 s3.create_bucket(
                     Bucket=environment.get('GLACIER_BUCKET_NAME'),
-                    CreateBucketConfiguration={'LocationConstraint': environment.get('AWS_DEFAULT_REGION')},
+                    CreateBucketConfiguration={'LocationConstraint': region} if region != 'us-east-1' else {},
                 )
             except (s3.exceptions.BucketAlreadyExists, s3.exceptions.BucketAlreadyOwnedByYou):
                 pass
@@ -183,12 +221,12 @@ def dump_database(environment):
                     )
 
             with open(dump_path, 'rb') as file:
-                # logger.info(s3.put_object(
-                #     Bucket=environment.get('GLACIER_BUCKET_NAME'),
-                #     Key=filename,
-                #     Body=file,
-                #     StorageClass=storage_class_map[environment.get('GLACIER_STORAGE_CLASS')]
-                # ))
+                logger.info(s3.put_object(
+                    Bucket=environment.get('GLACIER_BUCKET_NAME'),
+                    Key=filename,
+                    Body=file,
+                    StorageClass=storage_class_map[environment.get('GLACIER_STORAGE_CLASS')]
+                ))
                 logger.info('Archive upload done.')
                 send_slack_message(environment, f"Successfully created and uploaded DB dump ({sizeof_fmt(file_size)}).")
         except Exception as e:
