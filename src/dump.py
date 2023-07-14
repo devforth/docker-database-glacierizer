@@ -25,7 +25,7 @@ def remove_older_dumps(env, dump_path):
         try:
             if filename_ != dump_path:
                 # Trying to remove a current file
-                os.remove(os.path.join("/test_dir", filename_))
+                os.remove(filename_)
         except EnvironmentError as error:
             logger.error(f"Error while trying to remove older dumps. {error=}")
 
