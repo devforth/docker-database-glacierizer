@@ -1,3 +1,3 @@
 #!/bin/bash
 
-docker build src/ -t devforth/docker-database-glacierizer:new-upload-method
+docker build src/ -t devforth/docker-database-glacierizer:clean-up-old-dumps
