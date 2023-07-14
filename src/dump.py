@@ -158,6 +158,8 @@ def dump_database(environment):
             )
             logger.info("Glacier upload done.")
 
+            remove_older_dumps(env=environment, dump_path=dump_path)
+
             send_slack_message(
                 environment,
                 f"Successfully created and uploaded DB dump ({sizeof_fmt(file_size)}).",
