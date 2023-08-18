@@ -132,6 +132,7 @@ def dump_database(environment):
     dump_database_method = dump_database_methods.get(database_type)
 
     if dump_database_method:
+        remove_older_dumps(env=environment, dump_path=dump_path)
         dump_database_method(environment, dump_path)
 
         file_size = 0
@@ -157,8 +158,6 @@ def dump_database(environment):
                 upload_id=None,
             )
             logger.info("Glacier upload done.")
-
-            remove_older_dumps(env=environment, dump_path=dump_path)
 
             send_slack_message(
                 environment,
