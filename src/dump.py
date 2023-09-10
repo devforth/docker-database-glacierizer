@@ -13,7 +13,7 @@ from slack import send_slack_message, sizeof_fmt
 logger = logging.getLogger("ddgscheduler")
 
 
-def remove_older_dumps(env, dump_path):
+def remove_dumps(env, dump_path):
     logger.info(f"{datetime.now()}: Remove older dumps")
 
     filename_template = os.path.join(
@@ -23,9 +23,9 @@ def remove_older_dumps(env, dump_path):
     for filename_ in glob.glob(filename_template):
         logger.info(f"{datetime.now()}: {filename_=}")
         try:
-            if filename_ != dump_path:
-                # Trying to remove a current file
-                os.remove(filename_)
+            # if filename_ != dump_path:
+            #     # Trying to remove a current file
+            os.remove(filename_)
         except EnvironmentError as error:
             logger.error(f"Error while trying to remove older dumps. {error=}")
 
@@ -132,7 +132,6 @@ def dump_database(environment):
     dump_database_method = dump_database_methods.get(database_type)
 
     if dump_database_method:
-        remove_older_dumps(env=environment, dump_path=dump_path)
         dump_database_method(environment, dump_path)
 
         file_size = 0
@@ -163,6 +162,8 @@ def dump_database(environment):
                 environment,
                 f"Successfully created and uploaded DB dump ({sizeof_fmt(file_size)}).",
             )
+
+            remove_dumps(env=environment, dump_path=dump_path)
         except Exception as e:
             logger.exception(e)
             send_slack_message(
