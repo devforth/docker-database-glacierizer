@@ -135,7 +135,7 @@ def dump_clickhouse(environment, output_path):
 def dump_database(environment):
     logger.info(f'{datetime.now()}: Creating backup')
 
-    filename = f'{environment.get("DATABASE_TYPE")}_{environment.get("DATABASE_NAME")}_{datetime.now().strftime("%d_%m_%Y")}'
+    filename = f'{environment.get("DATABASE_TYPE")}_{environment.get("DATABASE_NAME")}_{datetime.now().strftime("%Y_%m_%d")}'
     dump_path = os.path.join('/tmp', filename)
 
     dump_database_methods = {
@@ -165,7 +165,7 @@ def dump_database(environment):
                 region = environment.get('AWS_DEFAULT_REGION')
                 s3.create_bucket(
                     Bucket=environment.get('GLACIER_BUCKET_NAME'),
-                    CreateBucketConfiguration={'LocationConstraint': region} if region != 'us-east-1' else {},
+                    **({'CreateBucketConfiguration': {'LocationConstraint': region}} if region != 'us-east-1' else {}),
                 )
             except (s3.exceptions.BucketAlreadyExists, s3.exceptions.BucketAlreadyOwnedByYou):
                 pass
