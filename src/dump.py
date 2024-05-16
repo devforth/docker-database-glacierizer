@@ -2,8 +2,8 @@ import os
 import gzip
 import boto3
 import logging
+import shutil
 import pathlib
-import zipfile
 
 import botocore.exceptions
 
@@ -133,42 +133,18 @@ def dump_clickhouse(environment, output_path):
 
     return dump_path
 
-def create_file_archive(zipname, srcpath):
-    srcpath = pathlib.Path(srcpath)
-
-    with zipfile.ZipFile(zipname + '.zip', 'w', zipfile.ZIP_DEFLATED) as zip:
-        zip.write(srcpath, srcpath)
-
-    return zippath
-
-
-def create_directory_archive(zipname, srcpath):
-    srcpath = pathlib.Path(srcpath)
-
-    with zipfile.ZipFile(zipname + '.zip', 'w', zipfile.ZIP_DEFLATED) as zip:
-        for dirpath, dirnames, filenames in srcpath.walk(follow_symlinks=True):
-            for filename in filenames:
-                filepath = pathlib.PurePosixPath(dirpath).joinpath(filename)
-                archive_file_path = pathlib.PurePosixPath(filepath).relative_to(srcpath)
-                print("filepath", filepath, archive_file_path)
-                zip.write(filepath, archive_file_path)
-
-    return zippath
-
 def dump_files(environment, output_path):
-    dump_path = output_path + '.zip'
-    filepath = environment.get('FILES_PATH')
-
+    filespath = environment.get('FILES_PATH')
     if not filespath:
         logger.error("Can not dump file(s): not found")
         raise Exception("File(s) not found")
 
-    filepath = pathlib.Path(filepath)
-    if filepath.is_dir():
-        create_directory_archive(dump_path, filepath)
-    else:
-        create_file_archive(dump_path, filepath)
+    srcpath = pathlib.Path(filespath)
+    srcdir  = srcpath.parents[0]
+    srcname = srcpath.name
 
+    shutil.make_archive(output_path, 'gztar', srcdir, srcname)
+    dump_path = output_path + '.tar.gz'
     return dump_path
 
 def dump_database(environment):

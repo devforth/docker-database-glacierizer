@@ -20,7 +20,7 @@ def get_env():
         'CRON': {'type': str},
         'START_MANUAL_MANAGEMENT_SERVER': {'type': bool, 'required': False, 'default': True},
         'MANUAL_MANAGEMENT_PORT': {'type': int, 'required': False, 'default': 33399},
-        'FILES_PATH': {'type': str},
+        'FILES_PATH': {'type': str, 'required': False},
         'DATABASE_TYPE': {'type': str, 'enum': ['postgresql', 'mysql', 'clickhouse', 'mongodb', 'sqlite', 'files']},
         'DATABASE_HOST': {'type': str},
         'DATABASE_NAME': {'type': str},
