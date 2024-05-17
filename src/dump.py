@@ -135,10 +135,6 @@ def dump_clickhouse(environment, output_path):
 
 def dump_files(environment, output_path):
     filespath = environment.get('FILES_PATH')
-    if not filespath:
-        logger.error("Can not dump file(s): not found")
-        raise Exception("File(s) not found")
-
     srcpath = pathlib.Path(filespath)
     srcdir  = srcpath.parents[0]
     srcname = srcpath.name
@@ -150,7 +146,14 @@ def dump_files(environment, output_path):
 def dump_database(environment):
     logger.info(f'{datetime.now()}: Creating backup')
 
-    filename = f'{environment.get("DATABASE_TYPE")}_{environment.get("DATABASE_NAME")}_{datetime.now().strftime("%Y_%m_%d")}'
+    database_type = environment.get('DATABASE_TYPE').lower()
+    dump_name = (
+        environment.get('DATABASE_NAME')
+        if database_type == 'files' else
+        environment.get('DUMP_NAME')
+    )
+
+    filename = f'{database_type}_{dump_name}_{datetime.now().strftime("%Y_%m_%d")}'
     dump_path = os.path.join('/tmp', filename)
 
     dump_database_methods = {
@@ -162,7 +165,6 @@ def dump_database(environment):
         'files': dump_files,
     }
 
-    database_type = environment.get('DATABASE_TYPE').lower()
     dump_database_method = dump_database_methods.get(database_type)
 
     if dump_database_method:
