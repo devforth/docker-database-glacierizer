@@ -148,9 +148,9 @@ def dump_database(environment):
 
     database_type = environment.get('DATABASE_TYPE').lower()
     dump_name = (
-        environment.get('DATABASE_NAME')
-        if database_type == 'files' else
-        environment.get('DUMP_NAME')
+        environment.get('DUMP_NAME') or
+        environment.get('DATABASE_NAME') or
+        environment.get('FILES_PATH').replace('/', '_')
     )
 
     filename = f'{database_type}_{dump_name}_{datetime.now().strftime("%Y_%m_%d")}'

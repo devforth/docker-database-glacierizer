@@ -55,7 +55,6 @@ def get_env():
     env_variables_files: dict[str, dict[str, Type | bool | str | list | int]] = {
         'DATABASE_TYPE': {'type': str, 'enum': ['files']},
         'FILES_PATH': {'type': str},
-        'DUMP_NAME': {'type': str},
     }
 
     env_variables: dict[str, dict[str, Type | bool | str | list | int]] = {
@@ -71,6 +70,7 @@ def get_env():
         'AWS_SECRET_ACCESS_KEY': {'type': str},
         'PROJECT_NAME': {'type': str, 'required': False, 'default': gethostname()},
         'SLACK_WEBHOOK': {'type': str, 'required': False},
+        'DUMP_NAME': {'type': str, 'required': False},
         **(
             env_variables_files
             if environment['DATABASE_TYPE'] == 'files' else
