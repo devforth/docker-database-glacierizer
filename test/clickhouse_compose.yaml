@@ -12,7 +12,7 @@ services:
       CLICKHOUSE_DB: test_db
 
   clickhouse_dumper:
-    build: ../src
+    build: ..
     restart: always
     ports:
       - 33399:33399

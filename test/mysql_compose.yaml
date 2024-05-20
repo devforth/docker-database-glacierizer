@@ -12,7 +12,7 @@ services:
       MYSQL_DATABASE: test_db
 
   mysql_dumper:
-    build: ../src
+    build: ..
     ports:
       - 33399:33399
     environment:
