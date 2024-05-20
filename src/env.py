@@ -72,16 +72,16 @@ def get_env():
         'SLACK_WEBHOOK': {'type': str, 'required': False},
         'DUMP_NAME': {'type': str, 'required': False},
         **(
-            env_variables_files
-            if environment['DATABASE_TYPE'] == 'files' else
-            env_variables_database
+            env_variables_files if environment['DATABASE_TYPE'] == 'files'
+            else env_variables_sqlite if environment['DATABASE_TYPE'] == 'sqlite'
+            else env_variables_database
         ),
     }
 
     for name, options in env_variables.items():
         environment[name] = parse_env(name, options)
 
-    if environment['DATABASE_PORT'] == 0:
+    if environment.get('DATABASE_PORT', None) == 0:
         port_map = {
             'mysql': 3306,
             'postgresql': 5432,
@@ -90,8 +90,8 @@ def get_env():
         }
         environment['DATABASE_PORT'] = port_map.get(environment['DATABASE_TYPE'].lower(), 0)
 
-    if environment['DATABASE_PORT'] == 0:
-        raise AttributeError(f"Couldn't figure out value for DATABASE_PORT. Please specify it in environment values")
+        if environment['DATABASE_PORT'] == 0:
+            raise AttributeError(f"Couldn't figure out value for DATABASE_PORT. Please specify it in environment values")
 
     return environment
 
