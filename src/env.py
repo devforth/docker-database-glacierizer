@@ -35,15 +35,15 @@ def parse_env(name: str, options: dict[str, Type | bool | str | list | int]):
 def get_env():
     environment = {}
 
-    env_variables_type: dict[str, dict[str, Type | bool | str | list | int]] = {
+    env_variables_type: dict[str, dict] = {
         'DATABASE_TYPE': {'type': str, 'enum': ['postgresql', 'mysql', 'clickhouse', 'mongodb', 'sqlite', 'files']},
     }
 
     for name, options in env_variables_type.items():
         environment[name] = parse_env(name, options)
 
-    env_variables_database: dict[str, dict[str, Type | bool | str | list | int]] = {
-        'DATABASE_TYPE': {'type': str, 'enum': ['postgresql', 'mysql', 'clickhouse', 'mongodb', 'sqlite']},
+    env_variables_database: dict[str, dict] = {
+        'DATABASE_TYPE': {'type': str, 'enum': ['postgresql', 'mysql', 'clickhouse', 'mongodb']},
         'DATABASE_HOST': {'type': str},
         'DATABASE_NAME': {'type': str},
         'DATABASE_USER': {'type': str, 'required': False, 'default': ''},
@@ -52,12 +52,17 @@ def get_env():
         'AUTH_DATABASE_NAME': {'type': str, 'required': False, 'default': 'admin'},
     }
 
-    env_variables_files: dict[str, dict[str, Type | bool | str | list | int]] = {
+    env_variables_sqlite: dict[str, dict] = {
+        'DATABASE_TYPE': {'type': str, 'enum': ['sqlite']},
+        'DATABASE_PATH': {'type': str},
+    }
+
+    env_variables_files: dict[str, dict] = {
         'DATABASE_TYPE': {'type': str, 'enum': ['files']},
         'FILES_PATH': {'type': str},
     }
 
-    env_variables: dict[str, dict[str, Type | bool | str | list | int]] = {
+    env_variables: dict[str, dict] = {
         'TEST': {'type': bool, 'required': False, 'default': False},
         'CRON': {'type': str},
         'START_MANUAL_MANAGEMENT_SERVER': {'type': bool, 'required': False, 'default': True},
