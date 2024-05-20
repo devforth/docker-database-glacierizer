@@ -18,7 +18,7 @@ def parse_env(name: str, options: dict[str, Type | bool | str | list | int]):
     if required and (value is None or len(value) == 0):
         raise AttributeError(f'Environment value {name} is missing or empty')
     elif not required and value is None:
-        environment[name] = options.get('default')
+        return options.get('default')
     elif value is not None:
         if type(value) != options['type']:
             try:
