@@ -9,7 +9,7 @@ To use this image you need to set up all of its environment values. If one of it
 
 | Environment                    | Description                                                                                                                                     | Required | Default            |
 |--------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------|----------|--------------------|
-| CRON                           | Crontab syntax used to determine when to do a backup. You can use [crontab.guru](crontab.guru) website to get help with cron syntax             | ✓        |                    |
+| CRON                           | Crontab syntax used to determine when to do a backup. You can use [crontab.guru](https://crontab.guru) website to get help with cron syntax     | ✓        |                    |
 | START_MANUAL_MANAGEMENT_SERVER | When set to true, starts a server on specified port to which you can send a http request to manually trigger backup process                     |          | `true`             |
 | MANUAL_MANAGEMENT_PORT         | Prot for manual management server                                                                                                               |          | 33399              |
 | DATABASE_TYPE                  | Type of the database you want to backup. Available values [MySQL, PostgreSQL, ClickHouse, MongoDB]                                              | ✓        |                    |

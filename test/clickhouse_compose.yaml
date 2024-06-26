@@ -2,7 +2,7 @@ version: "3.0"
 
 services:
   clickhouse_db:
-    image: yandex/clickhouse-server
+    image: clickhouse/clickhouse-server:24.5
     ports:
       - 8123:8123
       - 9000:9000
@@ -12,12 +12,12 @@ services:
       CLICKHOUSE_DB: test_db
 
   clickhouse_dumper:
-    build: ../src
+    build: ..
     restart: always
     ports:
       - 33399:33399
     environment:
-      TEST: "false"
+      TEST: "true"
       CRON: "* * * * *"
 
       DATABASE_TYPE: "ClickHouse"

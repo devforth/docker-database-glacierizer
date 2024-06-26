@@ -83,20 +83,8 @@ def dump_mongodb(environment, output_path):
 
     return dump_path
 
-
 def dump_clickhouse(environment, output_path):
-    dump_path = output_path + '.sql.gz'
-    def stringify_row(row):
-        new_row = []
-
-        for v in row:
-            if type(v) == datetime:
-                v: datetime
-                new_row.append(v.strftime('%Y-%m-%d %H:%M:%S'))
-            else:
-                new_row.append(str(v))
-
-        return new_row
+    filename = os.path.basename(output_path) + '.zip'
 
     client = ClickhouseClient(
         host=environment.get('DATABASE_HOST'),
@@ -106,36 +94,101 @@ def dump_clickhouse(environment, output_path):
         port=environment.get('DATABASE_PORT'),
     )
 
-    available_tables = list(map(lambda x: x[0], client.execute(f'SHOW TABLES IN `{environment.get("DATABASE_NAME")}`')))
+    backup_query = f'''
+        BACKUP DATABASE `{environment.get("DATABASE_NAME")}`
+        TO S3(
+            'https://{environment.get("GLACIER_BUCKET_NAME")}.s3.amazonaws.com/{filename}', 
+            '{environment.get("AWS_ACCESS_KEY_ID")}', 
+            '{environment.get("AWS_SECRET_ACCESS_KEY")}'
+        )
+        SETTINGS 
+            compression_method = 'lzma', 
+            compression_level = 4,
+            s3_storage_class = 'STANDARD';
+    '''
+    client.execute(backup_query)
 
-    dump_output = ""
+    s3 = boto3.client('s3')
+    s3.copy(
+        CopySource={
+            "Bucket": environment.get('GLACIER_BUCKET_NAME'),
+            "Key": filename
+        },
+        Bucket=environment.get('GLACIER_BUCKET_NAME'),
+        Key=filename,
+        ExtraArgs={
+            'StorageClass': storage_class_map[environment.get('GLACIER_STORAGE_CLASS')],
+            'MetadataDirective': 'COPY',
+        }
+    )
 
-    for table in available_tables:
-        create_query = client.execute(f'SHOW CREATE TABLE `{table}`')[0][0]
-        dump_output += create_query + ';\n'
+    return None
 
-    dump_output += "\n\n"
+def prepare_s3_bucket(environment):
+    s3 = boto3.client('s3')
+    try:
+        region = environment.get('AWS_DEFAULT_REGION')
+        s3.create_bucket(
+            Bucket=environment.get('GLACIER_BUCKET_NAME'),
+            **({'CreateBucketConfiguration': {'LocationConstraint': region}} if region != 'us-east-1' else {}),
+        )
+    except (s3.exceptions.BucketAlreadyExists, s3.exceptions.BucketAlreadyOwnedByYou):
+        pass
 
-    for table in available_tables:
-        insert_query = client.execute(f"SELECT * FROM {table}")
+    try:
+        configuration = s3.get_bucket_lifecycle_configuration(
+            Bucket=environment.get('GLACIER_BUCKET_NAME')
+        )
+    except botocore.exceptions.ClientError as e:
+        if e.response.get('Error', {}).get('Code') == 'NoSuchLifecycleConfiguration':
+            configuration = {}
+        else:
+            raise
 
-        dump_output += f'INSERT INTO `{table}` FORMAT TSV'
+    glacierizer_current_rule = next(
+        filter(lambda r: r['ID'] == 'GLACIERIZER_EXPIRE_AFTER', configuration.get('Rules', [])), None)
+    existing_rules = list(filter(lambda r: r['ID'] != 'GLACIERIZER_EXPIRE_AFTER', configuration.get('Rules', [])))
 
-        for row in insert_query:
-            dump_output += '\n' + '\t'.join(stringify_row(row))
+    glacierizer_current_expire = glacierizer_current_rule.get('Expire', {}).get('Days',
+                                                                                None) if glacierizer_current_rule else None
+    glacierizer_new_expire = environment.get('GLACIER_EXPIRE_AFTER')
 
-        dump_output += ';\n\n'
+    glacierizer_rule_enabled = glacierizer_new_expire > 0
+    glacierizer_rule_changed = glacierizer_current_expire != glacierizer_new_expire
 
-    with gzip.GzipFile(dump_path, 'w+') as f:
-        f.write(dump_output.encode())
+    glacierizer_new_rule = None
+    if glacierizer_rule_enabled and glacierizer_rule_changed:
+        glacierizer_new_rule = {
+            'ID': 'GLACIERIZER_EXPIRE_AFTER',
+            'Status': 'Enabled',
+            'Expiration': {
+                'Days': glacierizer_new_expire,
+            },
+            'Filter': {},
+        }
 
-    return dump_path
+    if glacierizer_new_rule:
+        s3.put_bucket_lifecycle_configuration(
+            Bucket=environment.get('GLACIER_BUCKET_NAME'),
+            LifecycleConfiguration={
+                'Rules': [*existing_rules, glacierizer_new_rule]
+            }
+        )
+    elif glacierizer_rule_enabled is False and glacierizer_current_rule is not None:
+        if len(existing_rules) == 0:
+            s3.delete_bucket_lifecycle(
+                Bucket=environment.get('GLACIER_BUCKET_NAME')
+            )
+        else:
+            s3.put_bucket_lifecycle_configuration(
+                Bucket=environment.get('GLACIER_BUCKET_NAME'),
+                LifecycleConfiguration={
+                    'Rules': existing_rules
+                }
+            )
 
-
-def dump_database(environment):
-    logger.info(f'{datetime.now()}: Creating backup')
-
-    filename = f'{environment.get("DATABASE_TYPE")}_{environment.get("DATABASE_NAME")}_{datetime.now().strftime("%Y_%m_%d")}'
+def create_dump(environment):
+    filename = f'{environment.get("DATABASE_TYPE")}_{environment.get("DATABASE_NAME")}_{datetime.now().strftime("%Y_%m_%d_%H_%M")}'
     dump_path = os.path.join('/tmp', filename)
 
     dump_database_methods = {
@@ -148,93 +201,47 @@ def dump_database(environment):
     database_type = environment.get('DATABASE_TYPE').lower()
     dump_database_method = dump_database_methods.get(database_type)
 
-    if dump_database_method:
-        dump_path = dump_database_method(environment, dump_path)
+    if not dump_database_method:
+        raise NotImplemented(f"database of type {database_type} is not supported")
 
-        file_size = 0
-        try:
-            file_size = os.path.getsize(dump_path)
-        except Exception as e:
-            logger.error("Failed to get size of file.")
-            logger.exception(e)
+    dump_path = dump_database_method(environment, dump_path)
+    return dump_path
 
-        logger.info(f'{datetime.now()}: Backup created. Uploading to S3')
-        try:
+
+def dump_database(environment):
+    logger.info(f'Creating backup')
+
+    file_size = 0
+    try:
+        prepare_s3_bucket(environment)
+        dump_path = create_dump(environment)
+        logger.info(f'Backup created {dump_path=}')
+
+        if dump_path:
+            logger.info(f'Uploading to S3')
             s3 = boto3.client('s3')
-            try:
-                region = environment.get('AWS_DEFAULT_REGION')
-                s3.create_bucket(
-                    Bucket=environment.get('GLACIER_BUCKET_NAME'),
-                    **({'CreateBucketConfiguration': {'LocationConstraint': region}} if region != 'us-east-1' else {}),
-                )
-            except (s3.exceptions.BucketAlreadyExists, s3.exceptions.BucketAlreadyOwnedByYou):
-                pass
 
             try:
-                configuration = s3.get_bucket_lifecycle_configuration(
-                    Bucket=environment.get('GLACIER_BUCKET_NAME')
-                )
-            except botocore.exceptions.ClientError as e:
-                if e.response.get('Error', {}).get('Code') == 'NoSuchLifecycleConfiguration':
-                    configuration = {}
-                else:
-                    raise
-
-            glacierizer_current_rule = next(filter(lambda r: r['ID'] == 'GLACIERIZER_EXPIRE_AFTER', configuration.get('Rules', [])), None)
-            existing_rules = list(filter(lambda r: r['ID'] != 'GLACIERIZER_EXPIRE_AFTER', configuration.get('Rules', [])))
-
-            glacierizer_current_expire = glacierizer_current_rule.get('Expire', {}).get('Days', None) if glacierizer_current_rule else None
-            glacierizer_new_expire = environment.get('GLACIER_EXPIRE_AFTER')
-
-            glacierizer_rule_enabled = glacierizer_new_expire > 0
-            glacierizer_rule_changed = glacierizer_current_expire != glacierizer_new_expire
-
-            glacierizer_new_rule = None
-            if glacierizer_rule_enabled and glacierizer_rule_changed:
-                glacierizer_new_rule = {
-                    'ID': 'GLACIERIZER_EXPIRE_AFTER',
-                    'Status': 'Enabled',
-                    'Expiration': {
-                        'Days': glacierizer_new_expire,
-                    },
-                    'Filter': {},
-                }
-
-            if glacierizer_new_rule:
-                s3.put_bucket_lifecycle_configuration(
-                    Bucket=environment.get('GLACIER_BUCKET_NAME'),
-                    LifecycleConfiguration={
-                        'Rules': [*existing_rules, glacierizer_new_rule]
-                    }
-                )
-            elif glacierizer_rule_enabled is False and glacierizer_current_rule is not None:
-                if len(existing_rules) == 0:
-                    s3.delete_bucket_lifecycle(
-                        Bucket=environment.get('GLACIER_BUCKET_NAME')
-                    )
-                else:
-                    s3.put_bucket_lifecycle_configuration(
-                        Bucket=environment.get('GLACIER_BUCKET_NAME'),
-                        LifecycleConfiguration={
-                            'Rules': existing_rules
-                        }
-                    )
+                file_size = os.path.getsize(dump_path)
+            except Exception as e:
+                logger.error("Failed to get size of file.")
+                logger.exception(e)
 
             with open(dump_path, 'rb') as file:
                 logger.info(s3.put_object(
                     Bucket=environment.get('GLACIER_BUCKET_NAME'),
-                    Key=filename,
+                    Key=os.path.basename(dump_path),
                     Body=file,
                     StorageClass=storage_class_map[environment.get('GLACIER_STORAGE_CLASS')]
                 ))
+
                 logger.info('Archive upload done.')
                 send_slack_message(environment, f"Successfully created and uploaded DB dump ({sizeof_fmt(file_size)}).")
-        except Exception as e:
-            logger.exception(e)
-            send_slack_message(
-                environment,
-                f"Failed to upload DB dump ({sizeof_fmt(file_size)}) to AWS S3 ({storage_class_map.get(environment.get('GLACIER_STORAGE_CLASS'), 'UNKNOWN')}). Please check the error in the container logs.",
-                'FAIL'
-            )
-    else:
-        logger.error(f'Database of type {database_type} is not supported. Supported types are: {dump_database_methods.keys()}')
+
+    except Exception as e:
+        logger.exception(e)
+        send_slack_message(
+            environment,
+            f"Failed to upload DB dump ({sizeof_fmt(file_size)}) to AWS S3 ({storage_class_map.get(environment.get('GLACIER_STORAGE_CLASS'), 'UNKNOWN')}). Please check the error in the container logs.",
+            'FAIL'
+        )
