@@ -31,8 +31,8 @@ def get_env():
         'GLACIER_STORAGE_CLASS': {'type': str, 'enum': ['instant', 'flexible', 'deep'], 'default': 'flexible'},
         'GLACIER_EXPIRE_AFTER': {'type': int, 'default': 0},
         'AWS_DEFAULT_REGION': {'type': str},
-        'AWS_ACCESS_KEY_ID': {'type': str},
-        'AWS_SECRET_ACCESS_KEY': {'type': str},
+        'AWS_ACCESS_KEY_ID': {'type': str, 'required': False},
+        'AWS_SECRET_ACCESS_KEY': {'type': str, 'required': False},
         'PROJECT_NAME': {'type': str, 'required': False, 'default': gethostname()},
         'SLACK_WEBHOOK': {'type': str, 'required': False}
     }
