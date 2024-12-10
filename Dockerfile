@@ -13,7 +13,9 @@ RUN apt install postgresql-client mariadb-client -y
 
 RUN wget https://fastdl.mongodb.org/tools/db/mongodb-database-tools-debian10-x86_64-100.7.0.deb && \
     apt install ./mongodb-database-tools-*.deb && \
-    rm -f mongodb-database-tools-*.deb
+    rm -f mongodb-database-tools-*.deb && \
+    echo "/usr/lib/postgresql/17/lib" | sudo tee /etc/ld.so.conf.d/postgresql.conf && \
+    ldconfig
 
 COPY Pipfile Pipfile.lock ./
 RUN pipenv sync
