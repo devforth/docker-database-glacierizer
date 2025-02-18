@@ -92,6 +92,7 @@ def dump_clickhouse(environment, output_path):
         password=environment.get('DATABASE_PASSWORD'),
         database=environment.get('DATABASE_NAME'),
         port=environment.get('DATABASE_PORT'),
+        send_receive_timeout=900 # 15 minutes
     )
 
     backup_query = f'''
