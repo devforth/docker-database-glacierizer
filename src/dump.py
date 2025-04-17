@@ -1,4 +1,5 @@
 import os
+import glob
 import gzip
 import boto3
 import logging
@@ -27,6 +28,24 @@ def __run_command(command: str):
 
     return exit_status
 
+def remove_older_dumps(env, dump_path):
+    logger.info(f"{datetime.now()}: Remove older dumps")
+    file_extension = '.tar.gz' if env.get('DATABASE_TYPE').lower() == 'mongodb' else '.sql.gz'
+    filename_template = os.path.join(
+        "/tmp",
+        f'{env.get("DATABASE_TYPE")}_{env.get("DATABASE_NAME")}_*{file_extension}',
+    )
+    
+    clear_all = env.get('CLEAR_ALL_DUMPS', 'false')
+    
+    for filename_ in glob.glob(filename_template):
+        try:
+            if clear_all or filename_ != dump_path:
+                os.remove(filename_)
+                logger.info(f"Removed file: {filename_}")
+        except EnvironmentError as error:
+            logger.error(f"Error while trying to remove older dumps. {error=}")
+
 
 def dump_general(template, file_ext):
     def wrapper(environment, output_path):
@@ -54,8 +73,8 @@ def dump_general(template, file_ext):
 
 
 def dump_mongodb(environment, output_path):
-    template_auth = '/bin/bash -c \'mongodump -h "{host}" --port {port} -u "{user}" -p "{password}" -d "{database}" --authenticationDatabase="{auth_database}" --out "{dump_path}.folder" && tar -czf {dump_path} -C "{dump_path}.folder" . && rm -rf "{dump_path}.folder"\''
-    template_noauth = '/bin/bash -c \'mongodump -h "{host}" --port {port} -d "{database}" --out "{dump_path}.folder" && tar -czf {dump_path} -C "{dump_path}.folder" . && rm -rf "{dump_path}.folder"\''
+    template_auth = 'mkdir -p "{dump_path}.folder" && mongodump -h "{host}" --port {port} -u "{user}" -p "{password}" -d "{database}" --authenticationDatabase="{auth_database}" --out "{dump_path}.folder" && tar -czf {dump_path} -C "{dump_path}.folder" . && rm -rf "{dump_path}.folder"'
+    template_noauth = 'mkdir -p "{dump_path}.folder" && mongodump -h "{host}" --port {port} -d "{database}" --out "{dump_path}.folder" && tar -czf {dump_path} -C "{dump_path}.folder" . && rm -rf "{dump_path}.folder"'
 
     dump_path = output_path + '.tar.gz'
 
@@ -74,7 +93,7 @@ def dump_mongodb(environment, output_path):
         dump_path=dump_path,
     )
 
-    exit_status = __run_command(dump_command)
+    exit_status = __run_command(f'/bin/bash -c "{dump_command}"')
     if exit_status != 0:
         logger.error("RETURN CODE OF DUMP PROCESS != 0. CHECK OUTPUT ABOVE FOR ERRORS!")
         send_slack_message(environment, "Failed to create DB dump. Please check the error in the container logs.",
@@ -92,7 +111,7 @@ def dump_clickhouse(environment, output_path):
         password=environment.get('DATABASE_PASSWORD'),
         database=environment.get('DATABASE_NAME'),
         port=environment.get('DATABASE_PORT'),
-        send_receive_timeout=900 # 15 minutes
+        send_receive_timeout=environment.get('CLICKHOUSE_TIMEOUT') # 5 minutes
     )
 
     backup_query = f'''
@@ -150,7 +169,7 @@ def prepare_s3_bucket(environment):
         filter(lambda r: r['ID'] == 'GLACIERIZER_EXPIRE_AFTER', configuration.get('Rules', [])), None)
     existing_rules = list(filter(lambda r: r['ID'] != 'GLACIERIZER_EXPIRE_AFTER', configuration.get('Rules', [])))
 
-    glacierizer_current_expire = glacierizer_current_rule.get('Expire', {}).get('Days',
+    glacierizer_current_expire = glacierizer_current_rule.get('Expiration', {}).get('Days',
                                                                                 None) if glacierizer_current_rule else None
     glacierizer_new_expire = environment.get('GLACIER_EXPIRE_AFTER')
 
@@ -194,7 +213,7 @@ def create_dump(environment):
 
     dump_database_methods = {
         'mysql': dump_general('/bin/bash -c \'set -o pipefail; mysqldump -h "{host}" -u "{user}" -p"{password}" --databases "{database}" -P {port} --protocol tcp | gzip -9 > {dump_path}\'', '.sql.gz'),
-        'postgresql': dump_general('PGPASSWORD="{password}" pg_dump -h "{host}" -U "{user}" -d "{database}" -p {port} -Fp -Z9 > {dump_path}', 'sql.gz'),
+        'postgresql': dump_general('PGPASSWORD="{password}" pg_dump -h "{host}" -U "{user}" -d "{database}" -p {port} -Fp -Z9 > {dump_path}', '.sql.gz'),
         'mongodb': dump_mongodb,
         'clickhouse': dump_clickhouse,
     }
@@ -237,6 +256,7 @@ def dump_database(environment):
                 ))
 
                 logger.info('Archive upload done.')
+                remove_older_dumps(env = environment, dump_path = dump_path)
                 send_slack_message(environment, f"Successfully created and uploaded DB dump ({sizeof_fmt(file_size)}).")
 
     except Exception as e:
