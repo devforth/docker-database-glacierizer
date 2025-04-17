@@ -29,7 +29,6 @@ def __run_command(command: str):
     return exit_status
 
 def remove_older_dumps(env, dump_path):
-    logger.info(f"{datetime.now()}: Remove older dumps")
     file_extension = '.tar.gz' if env.get('DATABASE_TYPE').lower() == 'mongodb' else '.sql.gz'
     filename_template = os.path.join(
         "/tmp",
