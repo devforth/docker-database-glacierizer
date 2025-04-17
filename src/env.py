@@ -34,7 +34,9 @@ def get_env():
         'AWS_ACCESS_KEY_ID': {'type': str, 'required': False},
         'AWS_SECRET_ACCESS_KEY': {'type': str, 'required': False},
         'PROJECT_NAME': {'type': str, 'required': False, 'default': gethostname()},
-        'SLACK_WEBHOOK': {'type': str, 'required': False}
+        'SLACK_WEBHOOK': {'type': str, 'required': False},
+        'CLEAR_ALL_DUMPS': {'type': bool, 'required': False, 'default': False},
+        'CLICKHOUSE_TIMEOUT': {'type': int, 'required': False, 'default': 300}
     }
 
     for name, options in env_variables.items():
