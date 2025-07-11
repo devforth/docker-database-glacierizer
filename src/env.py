@@ -36,7 +36,8 @@ def get_env():
         'PROJECT_NAME': {'type': str, 'required': False, 'default': gethostname()},
         'SLACK_WEBHOOK': {'type': str, 'required': False},
         'CLEAR_ALL_DUMPS': {'type': bool, 'required': False, 'default': False},
-        'CLICKHOUSE_TIMEOUT': {'type': int, 'required': False, 'default': 300}
+        'CLICKHOUSE_TIMEOUT': {'type': int, 'required': False, 'default': 300},
+        'DUMP_PATH_DIR': {'type': str, 'required': False, 'default': '/tmp'},
     }
 
     for name, options in env_variables.items():

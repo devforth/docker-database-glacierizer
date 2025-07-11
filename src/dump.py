@@ -3,6 +3,7 @@ import glob
 import gzip
 import boto3
 import logging
+from pathlib import Path
 
 import botocore.exceptions
 
@@ -31,7 +32,7 @@ def __run_command(command: str):
 def remove_older_dumps(env, dump_path):
     file_extension = '.tar.gz' if env.get('DATABASE_TYPE').lower() == 'mongodb' else '.sql.gz'
     filename_template = os.path.join(
-        "/tmp",
+        env.get("DUMP_PATH_DIR", "/tmp"),
         f'{env.get("DATABASE_TYPE")}_{env.get("DATABASE_NAME")}_*{file_extension}',
     )
     
@@ -208,7 +209,10 @@ def prepare_s3_bucket(environment):
 
 def create_dump(environment):
     filename = f'{environment.get("DATABASE_TYPE")}_{environment.get("DATABASE_NAME")}_{datetime.now().strftime("%Y_%m_%d_%H_%M")}'
-    dump_path = os.path.join('/tmp', filename)
+    dump_dir = environment.get("DUMP_PATH_DIR", "/tmp")
+    dump_path = os.path.join(dump_dir, filename)
+    
+    Path(dump_dir).mkdir(parents=True, exist_ok=True)
 
     dump_database_methods = {
         'mysql': dump_general('/bin/bash -c \'set -o pipefail; mysqldump -h "{host}" -u "{user}" -p"{password}" --databases "{database}" -P {port} --protocol tcp | gzip -9 > {dump_path}\'', '.sql.gz'),

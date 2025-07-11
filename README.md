@@ -28,6 +28,7 @@ To use this image you need to set up all of its environment values. If one of it
 | PROJECT_NAME                   | Used as a "header" for slack message. If not set default to machine hostname                                                                    |          | <machine hostname> |
 | CLEAR_ALL_DUMPS                | If set to true, all dump files will be removed after backup. If false, only old dumps will be removed, keeping the latest one                   |          | false              |
 | CLICKHOUSE_TIMEOUT             | Timeout in seconds for ClickHouse backup operations                                                                                             |          | 300                |
+| DUMP_PATH_DIR                  | Path to the local directory where dump files will be temporarily stored before upload                                                           |          | /tmp               |
 
 ## Notes
 Currently only supports one database per docker container for either PostgreSQL or MySQL databases.
