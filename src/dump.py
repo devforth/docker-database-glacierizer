@@ -33,11 +33,14 @@ def __run_command(command: str):
 def dump_general(template, file_ext):
     def wrapper(environment, output_path):
         dump_path = output_path + file_ext
+        
+        database_val = environment.get('DATABASE_PATH') if environment.get('DATABASE_TYPE', '').lower() == 'sqlite' else environment.get('DATABASE_NAME')
+
         dump_command = template.format(
             host=environment.get('DATABASE_HOST'),
             user=environment.get('DATABASE_USER'),
             password=environment.get('DATABASE_PASSWORD'),
-            database=environment.get('DATABASE_NAME'),
+            database=database_val,
             auth_database=environment.get('AUTH_DATABASE_NAME'),
             port=environment.get('DATABASE_PORT'),
             dump_path=dump_path,
@@ -160,7 +163,7 @@ def dump_database(environment):
     dump_database_methods = {
         'mysql': dump_general('/bin/bash -c \'set -o pipefail; mysqldump -h "{host}" -u "{user}" -p"{password}" --databases "{database}" -P {port} --protocol tcp | gzip -9 > {dump_path}\'', '.sql.gz'),
         'postgresql': dump_general('PGPASSWORD="{password}" pg_dump -h "{host}" -U "{user}" -d "{database}" -p {port} -Fp -Z9 > {dump_path}', 'sql.gz'),
-        'sqlite': dump_general('/bin/bash -c \'sqlite3 {database} .dump | gzip -9 > {dump_path}\'', '.sql.gz'),
+        'sqlite': dump_general('/bin/bash -c \'set -o pipefail; sqlite3 {database} .dump | gzip -9 > {dump_path}\'', '.sql.gz'),
         'mongodb': dump_mongodb,
         'clickhouse': dump_clickhouse,
         'files': dump_files,
@@ -191,54 +194,60 @@ def dump_database(environment):
                 pass
 
             try:
-                configuration = s3.get_bucket_lifecycle_configuration(
-                    Bucket=environment.get('GLACIER_BUCKET_NAME')
-                )
-            except botocore.exceptions.ClientError as e:
-                if e.response.get('Error', {}).get('Code') == 'NoSuchLifecycleConfiguration':
-                    configuration = {}
-                else:
-                    raise
-
-            glacierizer_current_rule = next(filter(lambda r: r['ID'] == 'GLACIERIZER_EXPIRE_AFTER', configuration.get('Rules', [])), None)
-            existing_rules = list(filter(lambda r: r['ID'] != 'GLACIERIZER_EXPIRE_AFTER', configuration.get('Rules', [])))
-
-            glacierizer_current_expire = glacierizer_current_rule.get('Expire', {}).get('Days', None) if glacierizer_current_rule else None
-            glacierizer_new_expire = environment.get('GLACIER_EXPIRE_AFTER')
-
-            glacierizer_rule_enabled = glacierizer_new_expire > 0
-            glacierizer_rule_changed = glacierizer_current_expire != glacierizer_new_expire
-
-            glacierizer_new_rule = None
-            if glacierizer_rule_enabled and glacierizer_rule_changed:
-                glacierizer_new_rule = {
-                    'ID': 'GLACIERIZER_EXPIRE_AFTER',
-                    'Status': 'Enabled',
-                    'Expiration': {
-                        'Days': glacierizer_new_expire,
-                    },
-                    'Filter': {},
-                }
-
-            if glacierizer_new_rule:
-                s3.put_bucket_lifecycle_configuration(
-                    Bucket=environment.get('GLACIER_BUCKET_NAME'),
-                    LifecycleConfiguration={
-                        'Rules': [*existing_rules, glacierizer_new_rule]
-                    }
-                )
-            elif glacierizer_rule_enabled is False and glacierizer_current_rule is not None:
-                if len(existing_rules) == 0:
-                    s3.delete_bucket_lifecycle(
+                try:
+                    configuration = s3.get_bucket_lifecycle_configuration(
                         Bucket=environment.get('GLACIER_BUCKET_NAME')
                     )
-                else:
+                except botocore.exceptions.ClientError as e:
+                    if e.response.get('Error', {}).get('Code') == 'NoSuchLifecycleConfiguration':
+                        configuration = {}
+                    else:
+                        raise
+
+                glacierizer_current_rule = next(filter(lambda r: r['ID'] == 'GLACIERIZER_EXPIRE_AFTER', configuration.get('Rules', [])), None)
+                existing_rules = list(filter(lambda r: r['ID'] != 'GLACIERIZER_EXPIRE_AFTER', configuration.get('Rules', [])))
+
+                glacierizer_current_expire = glacierizer_current_rule.get('Expire', {}).get('Days', None) if glacierizer_current_rule else None
+                glacierizer_new_expire = environment.get('GLACIER_EXPIRE_AFTER')
+
+                glacierizer_rule_enabled = glacierizer_new_expire > 0
+                glacierizer_rule_changed = glacierizer_current_expire != glacierizer_new_expire
+
+                glacierizer_new_rule = None
+                if glacierizer_rule_enabled and glacierizer_rule_changed:
+                    glacierizer_new_rule = {
+                        'ID': 'GLACIERIZER_EXPIRE_AFTER',
+                        'Status': 'Enabled',
+                        'Expiration': {
+                            'Days': glacierizer_new_expire,
+                        },
+                        'Filter': {},
+                    }
+
+                if glacierizer_new_rule:
                     s3.put_bucket_lifecycle_configuration(
                         Bucket=environment.get('GLACIER_BUCKET_NAME'),
                         LifecycleConfiguration={
-                            'Rules': existing_rules
+                            'Rules': [*existing_rules, glacierizer_new_rule]
                         }
                     )
+                elif glacierizer_rule_enabled is False and glacierizer_current_rule is not None:
+                    if len(existing_rules) == 0:
+                        s3.delete_bucket_lifecycle(
+                            Bucket=environment.get('GLACIER_BUCKET_NAME')
+                        )
+                    else:
+                        s3.put_bucket_lifecycle_configuration(
+                            Bucket=environment.get('GLACIER_BUCKET_NAME'),
+                            LifecycleConfiguration={
+                                'Rules': existing_rules
+                            }
+                        )
+            except botocore.exceptions.ClientError as e:
+                if e.response.get('Error', {}).get('Code') == 'AccessDenied':
+                    logger.warning('Access denied when configuring lifecycle management. Skipping lifecycle setup.')
+                else:
+                    raise
 
             with open(dump_path, 'rb') as file:
                 logger.info(s3.put_object(
