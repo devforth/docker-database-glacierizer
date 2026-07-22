@@ -1,7 +1,10 @@
 import os
 import re
+import logging
 from socket import gethostname
 from typing import Type
+
+logger = logging.getLogger('ddgscheduler')
 
 
 def cast_to_type(value, cast_type):
@@ -20,16 +23,17 @@ def get_env():
         'CRON': {'type': str},
         'START_MANUAL_MANAGEMENT_SERVER': {'type': bool, 'required': False, 'default': True},
         'MANUAL_MANAGEMENT_PORT': {'type': int, 'required': False, 'default': 33399},
-        'DATABASE_TYPE': {'type': str, 'enum': ['postgresql', 'mysql', 'clickhouse', 'mongodb']},
+        'DATABASE_TYPE': {'type': str, 'enum': ['postgresql', 'mysql', 'clickhouse', 'mongodb', 'qdrant']},
         'DATABASE_HOST': {'type': str},
-        'DATABASE_NAME': {'type': str},
+        'DATABASE_NAME': {'type': str, 'required': False, 'default': ''},
         'DATABASE_USER': {'type': str, 'required': False, 'default': ''},
         'DATABASE_PASSWORD': {'type': str, 'required': False, 'default': ''},
+        'QDRANT_API_KEY': {'type': str, 'required': False, 'default': ''},
         'DATABASE_PORT': {'type': int, 'required': False, 'default': 0},
         'AUTH_DATABASE_NAME': {'type': str, 'required': False, 'default': 'admin'},
         'GLACIER_BUCKET_NAME': {'type': str, 'regex': '(?!(^xn--|-s3alias$))^[a-z0-9][a-z0-9-]{1,61}[a-z0-9]$'},
-        'GLACIER_STORAGE_CLASS': {'type': str, 'enum': ['instant', 'flexible', 'deep'], 'default': 'flexible'},
-        'GLACIER_EXPIRE_AFTER': {'type': int, 'default': 0},
+        'GLACIER_STORAGE_CLASS': {'type': str, 'enum': ['instant', 'flexible', 'deep'], 'required': False, 'default': 'flexible'},
+        'GLACIER_EXPIRE_AFTER': {'type': int, 'required': False, 'default': 0},
         'AWS_DEFAULT_REGION': {'type': str},
         'AWS_ACCESS_KEY_ID': {'type': str, 'required': False},
         'AWS_SECRET_ACCESS_KEY': {'type': str, 'required': False},
@@ -61,12 +65,19 @@ def get_env():
             else:
                 environment[name] = value
 
+    if environment['DATABASE_TYPE'] != 'qdrant' and not environment.get('DATABASE_NAME'):
+        raise AttributeError("Environment value DATABASE_NAME is missing or empty")
+
+    if environment['DATABASE_TYPE'] == 'qdrant' and not environment.get('QDRANT_API_KEY'):
+        logger.warning("Environment variable QDRANT_API_KEY is not set. Are you sure your database is public?")
+
     if environment['DATABASE_PORT'] == 0:
         port_map = {
             'mysql': 3306,
             'postgresql': 5432,
             'clickhouse': 9000,
             'mongodb': 27017,
+            'qdrant': 6333,
         }
         environment['DATABASE_PORT'] = port_map.get(environment['DATABASE_TYPE'].lower(), 0)
 

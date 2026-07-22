@@ -30,7 +30,14 @@ def __run_command(command: str):
     return exit_status
 
 def remove_older_dumps(env, dump_path):
-    file_extension = '.tar.gz' if env.get('DATABASE_TYPE').lower() == 'mongodb' else '.sql.gz'
+    db_type = env.get('DATABASE_TYPE').lower()
+    if db_type == 'mongodb':
+        file_extension = '.tar.gz'
+    elif db_type == 'qdrant':
+        file_extension = '.snapshot.gz'
+    else:
+        file_extension = '.sql.gz'
+        
     filename_template = os.path.join(
         env.get("DUMP_PATH_DIR", "/tmp"),
         f'{env.get("DATABASE_TYPE")}_{env.get("DATABASE_NAME")}_*{file_extension}',
@@ -144,6 +151,62 @@ def dump_clickhouse(environment, output_path):
 
     return None
 
+def dump_qdrant(environment, output_path):
+    import urllib.request
+    import json
+    import shutil
+    import gzip
+
+    host = environment.get('DATABASE_HOST')
+    port = environment.get('DATABASE_PORT')
+    api_key = environment.get('QDRANT_API_KEY')
+    collection_name = environment.get('DATABASE_NAME')
+
+    headers = {}
+    if api_key:
+        headers['api-key'] = api_key
+
+    if collection_name:
+        snapshot_url = f"http://{host}:{port}/collections/{collection_name}/snapshots?wait=true"
+    else:
+        snapshot_url = f"http://{host}:{port}/snapshots?wait=true"
+
+    logger.info(f'{datetime.now()}: Creating Qdrant snapshot via REST API')
+    req = urllib.request.Request(snapshot_url, method="POST", headers=headers)
+    try:
+        with urllib.request.urlopen(req) as response:
+            data = json.loads(response.read().decode('utf-8'))
+            snapshot_name = data['result']['name']
+    except Exception as e:
+        logger.error(f"Failed to create Qdrant snapshot: {e}")
+        send_slack_message(environment, "Failed to create Qdrant DB dump. Please check the error in the container logs.", 'FAIL')
+        raise Exception(f'Failed to create dump of Qdrant database: {e}')
+
+    if collection_name:
+        download_url = f"http://{host}:{port}/collections/{collection_name}/snapshots/{snapshot_name}"
+    else:
+        download_url = f"http://{host}:{port}/snapshots/{snapshot_name}"
+        
+    logger.info(f'{datetime.now()}: Downloading and compressing Qdrant snapshot {snapshot_name}')
+    req_dl = urllib.request.Request(download_url, method="GET", headers=headers)
+    dump_path = output_path + '.snapshot.gz'
+    try:
+        with urllib.request.urlopen(req_dl) as response, gzip.open(dump_path, 'wb') as out_file:
+            shutil.copyfileobj(response, out_file)
+    except Exception as e:
+        logger.error(f"Failed to download Qdrant snapshot: {e}")
+        send_slack_message(environment, "Failed to download Qdrant DB dump. Please check the error in the container logs.", 'FAIL')
+        raise Exception(f'Failed to download dump of Qdrant database: {e}')
+        
+    try:
+        delete_req = urllib.request.Request(download_url, method="DELETE", headers=headers)
+        urllib.request.urlopen(delete_req)
+        logger.info(f'{datetime.now()}: Successfully deleted Qdrant snapshot from server disk')
+    except Exception as e:
+        logger.warning(f"Failed to delete Qdrant snapshot from server (this is non-fatal): {e}")
+
+    return dump_path
+
 def prepare_s3_bucket(environment):
     s3 = boto3.client('s3')
     try:
@@ -219,6 +282,7 @@ def create_dump(environment):
         'postgresql': dump_general('PGPASSWORD="{password}" pg_dump -h "{host}" -U "{user}" -d "{database}" -p {port} -Fp -Z9 > {dump_path}', '.sql.gz'),
         'mongodb': dump_mongodb,
         'clickhouse': dump_clickhouse,
+        'qdrant': dump_qdrant,
     }
 
     database_type = environment.get('DATABASE_TYPE').lower()
