@@ -32,26 +32,28 @@ def __run_command(command: str):
 def remove_older_dumps(env, dump_path):
     db_type = env.get('DATABASE_TYPE').lower()
     if db_type == 'mongodb':
-        file_extension = '.tar.gz'
+        file_extension = 'tar.gz'
     elif db_type == 'qdrant':
-        file_extension = '.snapshot.gz'
+        file_extension = 'snapshot.gz'
     else:
-        file_extension = '.sql.gz'
+        file_extension = 'sql.gz'
         
     filename_template = os.path.join(
         env.get("DUMP_PATH_DIR", "/tmp"),
         f'{env.get("DATABASE_TYPE")}_{env.get("DATABASE_NAME")}_*{file_extension}',
     )
     
-    clear_all = env.get('CLEAR_ALL_DUMPS', 'false')
+    last_dump = env.get('LAST_DUMP', True)
     
     for filename_ in glob.glob(filename_template):
         try:
-            if clear_all or filename_ != dump_path:
+            if os.path.isfile(filename_):
+                if last_dump and filename_ == dump_path:
+                    continue
                 os.remove(filename_)
-                logger.info(f"Removed file: {filename_}")
+                logger.info(f"Removed dump file: {filename_}")
         except EnvironmentError as error:
-            logger.error(f"Error while trying to remove older dumps. {error=}")
+            logger.error(f"Error while trying to remove dump file. {error=}")
 
 
 def dump_general(template, file_ext):
@@ -315,12 +317,14 @@ def dump_database(environment):
                 logger.exception(e)
 
             with open(dump_path, 'rb') as file:
-                logger.info(s3.put_object(
+                s3.upload_fileobj(
+                    Fileobj=file,
                     Bucket=environment.get('GLACIER_BUCKET_NAME'),
                     Key=os.path.basename(dump_path),
-                    Body=file,
-                    StorageClass=storage_class_map[environment.get('GLACIER_STORAGE_CLASS')]
-                ))
+                    ExtraArgs={
+                        'StorageClass': storage_class_map[environment.get('GLACIER_STORAGE_CLASS')]
+                    }
+                )
 
                 logger.info('Archive upload done.')
                 remove_older_dumps(env = environment, dump_path = dump_path)

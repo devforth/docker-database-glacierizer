@@ -28,7 +28,7 @@ To use this image you need to set up all of its environment values. If one of it
 | AWS_SECRET_ACCESS_KEY          | Secret key for AWS account                                                                                                                      | ✓        |                    |
 | SLACK_WEBHOOK                  | If set it will be sending a message to Slack every time it finishes (successfully or not) dumping database and uploading dump                   |          |                    |
 | PROJECT_NAME                   | Used as a "header" for slack message. If not set default to machine hostname                                                                    |          | <machine hostname> |
-| CLEAR_ALL_DUMPS                | If set to true, all dump files will be removed after backup. If false, only old dumps will be removed, keeping the latest one                   |          | false              |
+| LAST_DUMP                      | If set to true (default), retains the most recently created dump in the temporary directory. If set to false, all dumps are removed after upload |          | true               |
 | CLICKHOUSE_TIMEOUT             | Timeout in seconds for ClickHouse backup operations                                                                                             |          | 300                |
 | DUMP_PATH_DIR                  | Path to the local directory where dump files will be temporarily stored before upload                                                           |          | /tmp               |
 

@@ -39,7 +39,7 @@ def get_env():
         'AWS_SECRET_ACCESS_KEY': {'type': str, 'required': False},
         'PROJECT_NAME': {'type': str, 'required': False, 'default': gethostname()},
         'SLACK_WEBHOOK': {'type': str, 'required': False},
-        'CLEAR_ALL_DUMPS': {'type': bool, 'required': False, 'default': False},
+        'LAST_DUMP': {'type': bool, 'required': False, 'default': True},
         'CLICKHOUSE_TIMEOUT': {'type': int, 'required': False, 'default': 300},
         'DUMP_PATH_DIR': {'type': str, 'required': False, 'default': '/tmp'},
     }
