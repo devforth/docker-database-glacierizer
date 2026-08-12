@@ -23,9 +23,9 @@ if __name__ == "__main__":
         time.sleep(300)
     else:
         if environment.get('START_MANUAL_MANAGEMENT_SERVER'):
-            dumper_scheduler = BackgroundScheduler()
+            dumper_scheduler = BackgroundScheduler(timezone='UTC')
         else:
-            dumper_scheduler = BlockingScheduler()
+            dumper_scheduler = BlockingScheduler(timezone='UTC')
 
         dumper_scheduler.add_job(lambda: dump_database(environment), CronTrigger.from_crontab(environment.get('CRON')))
         dumper_scheduler.start()
