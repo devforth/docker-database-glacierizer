@@ -39,7 +39,7 @@ def get_env():
         'AWS_SECRET_ACCESS_KEY': {'type': str, 'required': False},
         'PROJECT_NAME': {'type': str, 'required': False, 'default': gethostname()},
         'SLACK_WEBHOOK': {'type': str, 'required': False},
-        'LAST_DUMP': {'type': bool, 'required': False, 'default': True},
+        'LOCAL_DUMPS_COUNT': {'type': int, 'required': False, 'default': 1, 'min': 0, 'max': 20},
         'CLICKHOUSE_TIMEOUT': {'type': int, 'required': False, 'default': 300},
         'DUMP_PATH_DIR': {'type': str, 'required': False, 'default': '/tmp'},
     }
@@ -64,6 +64,11 @@ def get_env():
                 raise AttributeError(f'Environment value {name} does not match regex expression {options["regex"]}')
             else:
                 environment[name] = value
+
+            if 'min' in options and environment[name] < options['min']:
+                raise AttributeError(f"Environment value {name} must be >= {options['min']}")
+            if 'max' in options and environment[name] > options['max']:
+                raise AttributeError(f"Environment value {name} must be <= {options['max']}")
 
     if environment['DATABASE_TYPE'] != 'qdrant' and not environment.get('DATABASE_NAME'):
         raise AttributeError("Environment value DATABASE_NAME is missing or empty")

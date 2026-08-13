@@ -29,7 +29,7 @@ def __run_command(command: str):
 
     return exit_status
 
-def remove_older_dumps(env, dump_path):
+def remove_older_dumps(env):
     db_type = env.get('DATABASE_TYPE').lower()
     if db_type == 'mongodb':
         file_extension = 'tar.gz'
@@ -43,15 +43,21 @@ def remove_older_dumps(env, dump_path):
         f'{env.get("DATABASE_TYPE")}_{env.get("DATABASE_NAME")}_*{file_extension}',
     )
     
-    last_dump = env.get('LAST_DUMP', True)
+    local_dumps_count = env.get('LOCAL_DUMPS_COUNT', 1)
     
+    existing_dumps = []
     for filename_ in glob.glob(filename_template):
+        if os.path.isfile(filename_):
+            existing_dumps.append(filename_)
+            
+    existing_dumps.sort(key=os.path.getmtime, reverse=True)
+    
+    dumps_to_remove = existing_dumps[local_dumps_count:]
+    
+    for filename_ in dumps_to_remove:
         try:
-            if os.path.isfile(filename_):
-                if last_dump and filename_ == dump_path:
-                    continue
-                os.remove(filename_)
-                logger.info(f"Removed dump file: {filename_}")
+            os.remove(filename_)
+            logger.info(f"Removed dump file: {filename_}")
         except EnvironmentError as error:
             logger.error(f"Error while trying to remove dump file. {error=}")
 
@@ -327,7 +333,7 @@ def dump_database(environment):
                 )
 
                 logger.info('Archive upload done.')
-                remove_older_dumps(env = environment, dump_path = dump_path)
+                remove_older_dumps(env = environment)
                 send_slack_message(environment, f"Successfully created and uploaded DB dump ({sizeof_fmt(file_size)}).")
 
     except Exception as e:
