@@ -32,7 +32,7 @@ def __run_command(command: str):
 def remove_older_dumps(env):
     db_type = env.get('DATABASE_TYPE').lower()
     if db_type == 'mongodb':
-        file_extension = 'tar.gz'
+        file_extension = 'gz'
     elif db_type == 'qdrant':
         file_extension = 'snapshot.gz'
     else:
@@ -88,10 +88,10 @@ def dump_general(template, file_ext):
 
 
 def dump_mongodb(environment, output_path):
-    template_auth = 'mkdir -p "{dump_path}.folder" && mongodump -h "{host}" --port {port} -u "{user}" -p "{password}" -d "{database}" --authenticationDatabase="{auth_database}" --out "{dump_path}.folder" && tar -czf {dump_path} -C "{dump_path}.folder" . && rm -rf "{dump_path}.folder"'
-    template_noauth = 'mkdir -p "{dump_path}.folder" && mongodump -h "{host}" --port {port} -d "{database}" --out "{dump_path}.folder" && tar -czf {dump_path} -C "{dump_path}.folder" . && rm -rf "{dump_path}.folder"'
+    template_auth = 'mongodump -h "{host}" --port {port} -u "{user}" -p "{password}" -d "{database}" --authenticationDatabase="{auth_database}" --archive="{dump_path}" --gzip'
+    template_noauth = 'mongodump -h "{host}" --port {port} -d "{database}" --archive="{dump_path}" --gzip'
 
-    dump_path = output_path + '.tar.gz'
+    dump_path = output_path + '.archive.gz'
 
     if environment.get('DATABASE_USER') == '' and environment.get('DATABASE_PASSWORD') == '':
         template = template_noauth
