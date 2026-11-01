@@ -3,6 +3,7 @@ import glob
 import gzip
 import boto3
 import logging
+import shutil
 from pathlib import Path
 
 import botocore.exceptions
@@ -29,18 +30,28 @@ def __run_command(command: str):
 
     return exit_status
 
+def get_dump_name(env):
+    return (
+        env.get('DUMP_NAME') or
+        env.get('DATABASE_NAME') or
+        (env.get('DATABASE_PATH') or '').strip('/').replace('/', '_') or
+        (env.get('FILES_PATH') or '').strip('/').replace('/', '_')
+    )
+
 def remove_older_dumps(env):
     db_type = env.get('DATABASE_TYPE').lower()
     if db_type == 'mongodb':
         file_extension = 'gz'
     elif db_type == 'qdrant':
         file_extension = 'snapshot.gz'
+    elif db_type == 'files':
+        file_extension = 'tar.gz'
     else:
         file_extension = 'sql.gz'
-        
+
     filename_template = os.path.join(
         env.get("DUMP_PATH_DIR", "/tmp"),
-        f'{env.get("DATABASE_TYPE")}_{env.get("DATABASE_NAME")}_*{file_extension}',
+        f'{env.get("DATABASE_TYPE")}_{get_dump_name(env)}_*{file_extension}',
     )
     
     local_dumps_count = env.get('LOCAL_DUMPS_COUNT', 1)
@@ -65,11 +76,14 @@ def remove_older_dumps(env):
 def dump_general(template, file_ext):
     def wrapper(environment, output_path):
         dump_path = output_path + file_ext
+        
+        database_val = environment.get('DATABASE_PATH') if environment.get('DATABASE_TYPE', '').lower() == 'sqlite' else environment.get('DATABASE_NAME')
+
         dump_command = template.format(
             host=environment.get('DATABASE_HOST'),
             user=environment.get('DATABASE_USER'),
             password=environment.get('DATABASE_PASSWORD'),
-            database=environment.get('DATABASE_NAME'),
+            database=database_val,
             auth_database=environment.get('AUTH_DATABASE_NAME'),
             port=environment.get('DATABASE_PORT'),
             dump_path=dump_path,
@@ -215,6 +229,13 @@ def dump_qdrant(environment, output_path):
 
     return dump_path
 
+def dump_files(environment, output_path):
+    srcpath = Path(environment.get('FILES_PATH'))
+
+    shutil.make_archive(output_path, 'gztar', srcpath.parent, srcpath.name)
+    dump_path = output_path + '.tar.gz'
+    return dump_path
+
 def prepare_s3_bucket(environment):
     s3 = boto3.client('s3')
     try:
@@ -226,6 +247,15 @@ def prepare_s3_bucket(environment):
     except (s3.exceptions.BucketAlreadyExists, s3.exceptions.BucketAlreadyOwnedByYou):
         pass
 
+    try:
+        configure_bucket_lifecycle(s3, environment)
+    except botocore.exceptions.ClientError as e:
+        if e.response.get('Error', {}).get('Code') == 'AccessDenied':
+            logger.warning('Access denied when configuring lifecycle management. Skipping lifecycle setup.')
+        else:
+            raise
+
+def configure_bucket_lifecycle(s3, environment):
     try:
         configuration = s3.get_bucket_lifecycle_configuration(
             Bucket=environment.get('GLACIER_BUCKET_NAME')
@@ -279,7 +309,7 @@ def prepare_s3_bucket(environment):
             )
 
 def create_dump(environment):
-    filename = f'{environment.get("DATABASE_TYPE")}_{environment.get("DATABASE_NAME")}_{datetime.now().strftime("%Y_%m_%d_%H_%M")}'
+    filename = f'{environment.get("DATABASE_TYPE")}_{get_dump_name(environment)}_{datetime.now().strftime("%Y_%m_%d_%H_%M")}'
     dump_dir = environment.get("DUMP_PATH_DIR", "/tmp")
     dump_path = os.path.join(dump_dir, filename)
     
@@ -288,9 +318,11 @@ def create_dump(environment):
     dump_database_methods = {
         'mysql': dump_general('/bin/bash -c \'set -o pipefail; mysqldump -h "{host}" -u "{user}" -p"{password}" --databases "{database}" -P {port} --protocol tcp | gzip -9 > {dump_path}\'', '.sql.gz'),
         'postgresql': dump_general('PGPASSWORD="{password}" pg_dump -h "{host}" -U "{user}" -d "{database}" -p {port} -Fp -Z9 > {dump_path}', '.sql.gz'),
+        'sqlite': dump_general('/bin/bash -c \'set -o pipefail; sqlite3 "{database}" .dump | gzip -9 > {dump_path}\'', '.sql.gz'),
         'mongodb': dump_mongodb,
         'clickhouse': dump_clickhouse,
         'qdrant': dump_qdrant,
+        'files': dump_files,
     }
 
     database_type = environment.get('DATABASE_TYPE').lower()
