@@ -31,11 +31,12 @@ if __name__ == "__main__":
         dumper_scheduler.start()
 
         if environment.get('START_MANUAL_MANAGEMENT_SERVER'):
-            def on_get():
+            def on_post():
                 send_slack_message(environment, 'Backup triggered from server', 'OTHER')
                 dump_database(environment)
                 return f"{environment['PROJECT_NAME']} Backup Done"
 
-            server = AuthServer(('', environment.get('MANUAL_MANAGEMENT_PORT')), logger)
-            server.set_on_get(on_get)
+            address = (environment.get('MANUAL_MANAGEMENT_HOST'), environment.get('MANUAL_MANAGEMENT_PORT'))
+            server = AuthServer(address, environment.get('MANUAL_MANAGEMENT_TOKEN'), logger)
+            server.set_on_post(on_post)
             server.serve_forever()

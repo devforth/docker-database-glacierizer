@@ -10,8 +10,10 @@ To use this image you need to set up all of its environment values. If one of it
 | Environment                    | Description                                                                                                                                     | Required | Default            |
 |--------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------|----------|--------------------|
 | CRON                           | Crontab syntax used to determine when to do a backup. You can use [crontab.guru](https://crontab.guru) website to get help with cron syntax     | ✓        |                    |
-| START_MANUAL_MANAGEMENT_SERVER | When set to true, starts a server on specified port to which you can send a http request to manually trigger backup process                     |          | `true`             |
-| MANUAL_MANAGEMENT_PORT         | Prot for manual management server                                                                                                               |          | 33399              |
+| START_MANUAL_MANAGEMENT_SERVER | When set to true, starts a server on specified host and port to which you can send a http request to manually trigger backup process. Off by default, must be enabled explicitly |          | `false`            |
+| MANUAL_MANAGEMENT_HOST         | Address the manual management server binds to                                                                                                   |          | 127.0.0.1          |
+| MANUAL_MANAGEMENT_PORT         | Port for manual management server                                                                                                               |          | 33399              |
+| MANUAL_MANAGEMENT_TOKEN        | Bearer token required to trigger a backup through the manual management server. Required when START_MANUAL_MANAGEMENT_SERVER is true, startup fails without it |          |                    |
 | DATABASE_TYPE                  | Type of the database you want to backup. Available values [MySQL, PostgreSQL, ClickHouse, MongoDB, Qdrant]                                      | ✓        |                    |
 | DATABASE_HOST                  | Hostname or IP address to access database                                                                                                       | ✓        |                    |
 | DATABASE_PORT                  | Port to access database. If set to 0 selects a default port for a specified type (3306 for MySQL, 5432 for PostgreSQL, 6333 for Qdrant).        |          | 0                  |
@@ -37,5 +39,13 @@ Currently only supports one database per docker container for either PostgreSQL 
 
 Was only tested on MySQL 5.6 and PostgreSQL 10.11, but should work just fine with other versions as well.
 
-If you enabled server for manual dumping it's better to close the port from outside and use `ssh -L` option
-for port forwarding due to lack of security measures for said server.
+## Manual management server
+The server is off by default. To enable it set `START_MANUAL_MANAGEMENT_SERVER=true` and `MANUAL_MANAGEMENT_TOKEN` to a secret value;
+without the token the container fails at startup. It binds to `MANUAL_MANAGEMENT_HOST` (`127.0.0.1` by default), so keep the port closed
+from outside and use `ssh -L` port forwarding to reach it.
+
+A backup is triggered only by `POST /` with the token in the `Authorization` header; any other method, path or token is rejected:
+
+```
+curl -X POST -H "Authorization: Bearer $MANUAL_MANAGEMENT_TOKEN" http://127.0.0.1:33399/
+```

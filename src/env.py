@@ -21,8 +21,10 @@ def get_env():
     env_variables: dict[str, dict[str, Type | bool | str | list | int]] = {
         'TEST': {'type': bool, 'required': False, 'default': False},
         'CRON': {'type': str},
-        'START_MANUAL_MANAGEMENT_SERVER': {'type': bool, 'required': False, 'default': True},
+        'START_MANUAL_MANAGEMENT_SERVER': {'type': bool, 'required': False, 'default': False},
+        'MANUAL_MANAGEMENT_HOST': {'type': str, 'required': False, 'default': '127.0.0.1'},
         'MANUAL_MANAGEMENT_PORT': {'type': int, 'required': False, 'default': 33399},
+        'MANUAL_MANAGEMENT_TOKEN': {'type': str, 'required': False},
         'DATABASE_TYPE': {'type': str, 'enum': ['postgresql', 'mysql', 'clickhouse', 'mongodb', 'qdrant']},
         'DATABASE_HOST': {'type': str},
         'DATABASE_NAME': {'type': str, 'required': False, 'default': ''},
@@ -72,6 +74,9 @@ def get_env():
 
     if environment['DATABASE_TYPE'] != 'qdrant' and not environment.get('DATABASE_NAME'):
         raise AttributeError("Environment value DATABASE_NAME is missing or empty")
+
+    if environment['START_MANUAL_MANAGEMENT_SERVER'] and not environment.get('MANUAL_MANAGEMENT_TOKEN'):
+        raise AttributeError("Environment value MANUAL_MANAGEMENT_TOKEN is missing or empty. It is required when START_MANUAL_MANAGEMENT_SERVER is true")
 
     if environment['DATABASE_TYPE'] == 'qdrant' and not environment.get('QDRANT_API_KEY'):
         logger.warning("Environment variable QDRANT_API_KEY is not set. Are you sure your database is public?")
