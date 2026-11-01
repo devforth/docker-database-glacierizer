@@ -22,8 +22,9 @@ storage_class_map = {
 }
 
 
-def __run_command(command: str):
-    logger.info(f'{datetime.now()}: Running dm command: {command}')
+def __run_command(command: str, password: str):
+    logged_command = command.replace(password, '***') if password else command
+    logger.info(f'{datetime.now()}: Running dm command: {logged_command}')
 
     wait_exit_status = os.system(command)
     exit_status = os.waitstatus_to_exitcode(wait_exit_status)
@@ -89,7 +90,7 @@ def dump_general(template, file_ext):
             dump_path=dump_path,
         )
 
-        exit_status = __run_command(dump_command)
+        exit_status = __run_command(dump_command, environment.get('DATABASE_PASSWORD'))
 
         if exit_status != 0:
             logger.error("RETURN CODE OF DUMP PROCESS != 0. CHECK OUTPUT ABOVE FOR ERRORS!")
@@ -122,7 +123,7 @@ def dump_mongodb(environment, output_path):
         dump_path=dump_path,
     )
 
-    exit_status = __run_command(f'/bin/bash -c "{dump_command}"')
+    exit_status = __run_command(f'/bin/bash -c "{dump_command}"', environment.get('DATABASE_PASSWORD'))
     if exit_status != 0:
         logger.error("RETURN CODE OF DUMP PROCESS != 0. CHECK OUTPUT ABOVE FOR ERRORS!")
         send_slack_message(environment, "Failed to create DB dump. Please check the error in the container logs.",
