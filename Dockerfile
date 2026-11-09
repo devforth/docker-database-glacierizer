@@ -1,8 +1,8 @@
-FROM python:3.10-trixie
+FROM python:3.13-slim-trixie
 
 WORKDIR /scheduler/
 
-ARG MONGO_TOOLS_VERSION=100.10.0
+ARG MONGO_TOOLS_VERSION=100.20.1
 # set by buildx: amd64 or arm64. MongoDB has no Debian build of the tools for arm64,
 # the Ubuntu 24.04 one works here (Go binary, needs only libgssapi-krb5-2)
 ARG TARGETARCH
@@ -11,6 +11,7 @@ RUN case "$TARGETARCH" in \
         *)     MONGO_TOOLS_BUILD=debian12-x86_64 ;; \
     esac && \
     apt-get update && \
+    apt-get upgrade -y && \
     apt-get install -y --no-install-recommends ca-certificates curl gnupg && \
     install -d /usr/share/keyrings && \
     curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | \
@@ -25,7 +26,9 @@ RUN case "$TARGETARCH" in \
     rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
-RUN pip install -r requirements.txt
+# pip is not needed at runtime and its vendored libs (urllib3, msgpack, setuptools) carry CVEs
+RUN pip install --no-cache-dir -r requirements.txt && \
+    pip uninstall -y pip
 
 COPY src .
 

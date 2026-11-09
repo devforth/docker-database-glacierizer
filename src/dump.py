@@ -317,7 +317,7 @@ def create_dump(environment):
     Path(dump_dir).mkdir(parents=True, exist_ok=True)
 
     dump_database_methods = {
-        'mysql': dump_general('/bin/bash -c \'set -o pipefail; mysqldump -h "{host}" -u "{user}" -p"{password}" --databases "{database}" -P {port} --protocol tcp | gzip -9 > {dump_path}\'', '.sql.gz'),
+        'mysql': dump_general('/bin/bash -c \'set -o pipefail; mysqldump -h "{host}" -u "{user}" -p"{password}" --databases "{database}" -P {port} --protocol tcp --skip-ssl-verify-server-cert | gzip -9 > {dump_path}\'', '.sql.gz'),
         'postgresql': dump_general('PGPASSWORD="{password}" pg_dump -h "{host}" -U "{user}" -d "{database}" -p {port} -Fp -Z9 > {dump_path}', '.sql.gz'),
         'sqlite': dump_general('/bin/bash -c \'set -o pipefail; sqlite3 "{database}" .dump | gzip -9 > {dump_path}\'', '.sql.gz'),
         'mongodb': dump_mongodb,

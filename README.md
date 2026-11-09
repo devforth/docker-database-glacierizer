@@ -37,7 +37,7 @@ To use this image you need to set up all of its environment values. If one of it
 ## Notes
 Currently only supports one database per docker container for either PostgreSQL or MySQL databases.
 
-Was only tested on MySQL 5.6 and PostgreSQL 10.11, but should work just fine with other versions as well.
+Was tested on MySQL 8.0, MariaDB 11 and PostgreSQL 10.11. MySQL 5.6 and older are not supported: the bundled MariaDB 11.8 client cannot dump them.
 
 ## Manual management server
 The server is off by default. To enable it set `START_MANUAL_MANAGEMENT_SERVER=true` and `MANUAL_MANAGEMENT_TOKEN` to a secret value;
